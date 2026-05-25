@@ -2,7 +2,7 @@ import { Figure } from "./Figure";
 
 export function ReviewCognitiveLimit() {
   return (
-    <Figure caption="Fig 5. SmartBear–Cisco — 리뷰 한 건당 인지 한계(스위트 스팟)와 AI 생성 PR의 위치">
+    <Figure caption="Fig 3. SmartBear–Cisco — 리뷰 한 건당 인지 한계(스위트 스팟)와 AI 생성 PR의 위치">
       <div>
         <div className="relative h-16 flex">
           <Zone width={200 / 1200} label="작음" tone="muted" />

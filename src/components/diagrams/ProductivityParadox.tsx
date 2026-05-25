@@ -2,7 +2,7 @@ import { Figure } from "./Figure";
 
 export function ProductivityParadox() {
   return (
-    <Figure caption="Fig 3. AI 도입 패러독스 — 개인 지표는 오르지만 조직 단위 전달 성과는 떨어진다">
+    <Figure caption="Fig 1. AI 도입 패러독스 — 개인 지표는 오르지만 조직 단위 전달 성과는 떨어진다">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Panel direction="up" label="개인 단위">
           <Metric label="코드 품질" value="+3.4%" source="DORA 2024" />

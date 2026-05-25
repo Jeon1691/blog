@@ -23,7 +23,7 @@ const SCALE_MAX = 30; // % axis
 
 export function CodeQualityShift() {
   return (
-    <Figure caption="Fig 4. GitClear — 211M LOC를 4년에 걸쳐 분석한 결과 재사용은 줄고, 복사는 늘었다">
+    <Figure caption="Fig 2. GitClear — 211M LOC를 4년에 걸쳐 분석한 결과 재사용은 줄고, 복사는 늘었다">
       <div className="space-y-6">
         {metrics.map((m) => (
           <div key={m.label}>
