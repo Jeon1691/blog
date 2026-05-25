@@ -33,7 +33,7 @@ const phases = [
 
 export function PhaseRoadmap() {
   return (
-    <Figure caption="Fig 5. 4단계 전환 로드맵 — 측정 → AI 1차 리뷰 → Spec 파일럿 → Human Block Zone 분리">
+    <Figure caption="Fig 6. 4단계 전환 로드맵 — 측정 → AI 1차 리뷰 → Spec 파일럿 → Human Block Zone 분리">
       <div className="relative">
         <div className="absolute top-7 left-[12.5%] right-[12.5%] h-px bg-zinc-300 dark:bg-zinc-700 hidden sm:block" />
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-3 relative">

@@ -10,6 +10,7 @@ import { SwissCheeseGate } from "@/components/diagrams/SwissCheeseGate";
 import { PhaseRoadmap } from "@/components/diagrams/PhaseRoadmap";
 import { CodeQualityShift } from "@/components/diagrams/CodeQualityShift";
 import { ReviewCognitiveLimit } from "@/components/diagrams/ReviewCognitiveLimit";
+import { DeploymentSurfaces } from "@/components/diagrams/DeploymentSurfaces";
 
 > AI 도입 이후 PR의 생산성·크기·생성 속도가 모두 변했다. 기존의 '작게·자주·라인별 리뷰' 정책은 그대로 유지하기 어렵다. **무엇을 PR로 묶을지(단위), 무엇을 리뷰할지(대상), 누가 막을지(게이트)** 세 축을 동시에 재설계해야 한다.
 
@@ -87,6 +88,8 @@ SDD 계열 연구에서 검증된 효과:
 ## 3. 앱 개발 환경 특수 고려사항
 
 "빠르게 배포하고 더 빠르게 되돌린다"는 패러다임은 서버·웹에 강하지만, **모바일 앱은 배포 주기·롤백 제약**이 있다. DORA 2024가 강조한 'small batch + robust testing' 원칙은 모바일에서 더 무겁게 적용해야 한다.[^1]
+
+<DeploymentSurfaces />
 
 - **배포 전 검증(L1~L4) 비중을 더 두껍게.** 배포 후 관찰(L5)에 의존하는 비율을 낮춘다.
 - **네이티브 크리티컬 패스(결제, 서명, 키 관리, WalletConnect)는 L4 인간 블록 필수.** AI 자동 머지 영역에서 제외.
