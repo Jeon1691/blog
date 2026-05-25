@@ -1,31 +1,62 @@
 import { Figure } from "./Figure";
 
-const metrics = [
-  {
-    label: "Moved (리팩토링·재사용)",
-    before: 25,
-    after: 8, // <10%, draw at ~8 for visual
-    afterLabel: "<10%",
-    direction: "down" as const,
-    note: "재사용 줄어듦",
-  },
-  {
-    label: "Copy/Paste (복사·붙여넣기)",
-    before: 8,
-    after: 18, // ~18%
-    afterLabel: "~18%",
-    direction: "up" as const,
-    note: "중복 코드 폭증",
-  },
-];
+type Locale = "ko" | "en";
 
-const SCALE_MAX = 30; // % axis
+const STRINGS = {
+  ko: {
+    caption: "Fig 2. GitClear — 211M LOC를 4년에 걸쳐 분석한 결과 재사용은 줄고, 복사는 늘었다",
+    footer: "사상 처음으로 복사된 라인이 이동된 라인을 초과",
+    metrics: [
+      {
+        label: "Moved (리팩토링·재사용)",
+        before: 25,
+        after: 8,
+        afterLabel: "<10%",
+        direction: "down" as const,
+        note: "재사용 줄어듦",
+      },
+      {
+        label: "Copy/Paste (복사·붙여넣기)",
+        before: 8,
+        after: 18,
+        afterLabel: "~18%",
+        direction: "up" as const,
+        note: "중복 코드 폭증",
+      },
+    ],
+  },
+  en: {
+    caption: "Fig 2. GitClear — across 211M LOC over four years: reuse fell, copying rose",
+    footer: "For the first time on record, copied lines exceeded moved lines",
+    metrics: [
+      {
+        label: "Moved (refactor / reuse)",
+        before: 25,
+        after: 8,
+        afterLabel: "<10%",
+        direction: "down" as const,
+        note: "Reuse declining",
+      },
+      {
+        label: "Copy / Paste",
+        before: 8,
+        after: 18,
+        afterLabel: "~18%",
+        direction: "up" as const,
+        note: "Duplication surging",
+      },
+    ],
+  },
+} as const;
 
-export function CodeQualityShift() {
+const SCALE_MAX = 30;
+
+export function CodeQualityShift({ locale = "ko" }: { locale?: Locale }) {
+  const s = STRINGS[locale];
   return (
-    <Figure caption="Fig 2. GitClear — 211M LOC를 4년에 걸쳐 분석한 결과 재사용은 줄고, 복사는 늘었다">
+    <Figure caption={s.caption}>
       <div className="space-y-6">
-        {metrics.map((m) => (
+        {s.metrics.map((m) => (
           <div key={m.label}>
             <div className="flex items-baseline justify-between mb-2">
               <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
@@ -41,7 +72,7 @@ export function CodeQualityShift() {
         ))}
       </div>
       <div className="mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-        <span>사상 처음으로 복사된 라인이 이동된 라인을 초과</span>
+        <span>{s.footer}</span>
       </div>
     </Figure>
   );

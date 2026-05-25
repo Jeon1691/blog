@@ -1,23 +1,61 @@
 import { Figure } from "./Figure";
 
-export function ReviewCognitiveLimit() {
+type Locale = "ko" | "en";
+
+const STRINGS = {
+  ko: {
+    caption: "Fig 3. SmartBear–Cisco — 리뷰 한 건당 인지 한계(스위트 스팟)와 AI 생성 PR의 위치",
+    zones: {
+      small: "작음",
+      sweet: "스위트 스팟",
+      sweetSub: "결함 검출률 70–90%",
+      decline: "검출률 하락",
+      ai: "AI 영역",
+    },
+    pills: {
+      humanH: "인간 리뷰어",
+      humanB: "200~400 LOC · 60~90분 · 시간당 500 LOC 이하",
+      aiH: "AI 생성 PR",
+      aiB: "1,000줄급 — 인간 리뷰어가 구조적으로 검출 불가",
+    },
+  },
+  en: {
+    caption: "Fig 3. SmartBear–Cisco — per-review cognitive limits (the sweet spot) and where AI-generated PRs land",
+    zones: {
+      small: "small",
+      sweet: "sweet spot",
+      sweetSub: "70–90% defect detection",
+      decline: "detection declines",
+      ai: "AI territory",
+    },
+    pills: {
+      humanH: "Human reviewer envelope",
+      humanB: "200–400 LOC · 60–90 min · ≤ 500 LOC/hr",
+      aiH: "AI-generated PR",
+      aiB: "~1,000 LOC — structurally beyond human review capacity",
+    },
+  },
+} as const;
+
+export function ReviewCognitiveLimit({ locale = "ko" }: { locale?: Locale }) {
+  const s = STRINGS[locale];
   return (
-    <Figure caption="Fig 3. SmartBear–Cisco — 리뷰 한 건당 인지 한계(스위트 스팟)와 AI 생성 PR의 위치">
+    <Figure caption={s.caption}>
       <div>
         <div className="relative h-16 flex">
-          <Zone width={200 / 1200} label="작음" tone="muted" />
+          <Zone width={200 / 1200} label={s.zones.small} tone="muted" />
           <Zone
             width={(400 - 200) / 1200}
-            label="스위트 스팟"
+            label={s.zones.sweet}
             tone="strong"
-            subtext="결함 검출률 70–90%"
+            subtext={s.zones.sweetSub}
           />
           <Zone
             width={(1000 - 400) / 1200}
-            label="검출률 하락"
+            label={s.zones.decline}
             tone="subtle"
           />
-          <Zone width={200 / 1200} label="AI 영역" tone="muted" />
+          <Zone width={200 / 1200} label={s.zones.ai} tone="muted" />
         </div>
         <div className="relative h-6">
           <Tick at={0} label="0" />
@@ -27,15 +65,8 @@ export function ReviewCognitiveLimit() {
           <Tick at={1} label="LOC" muted />
         </div>
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Pill
-            heading="인간 리뷰어"
-            body="200~400 LOC · 60~90분 · 시간당 500 LOC 이하"
-          />
-          <Pill
-            heading="AI 생성 PR"
-            body="1,000줄급 — 인간 리뷰어가 구조적으로 검출 불가"
-            inverted
-          />
+          <Pill heading={s.pills.humanH} body={s.pills.humanB} />
+          <Pill heading={s.pills.aiH} body={s.pills.aiB} inverted />
         </div>
       </div>
     </Figure>
