@@ -68,7 +68,7 @@ export default async function PostPage({
           {meta.title}
         </h1>
         <div className="flex gap-3 text-sm text-muted-foreground">
-          <time dateTime={meta.date}>{meta.date}</time>
+          <time dateTime={meta.date}>{meta.dateDisplay}</time>
           <span>·</span>
           <span>{dict.post.readingTime(meta.readingMinutes)}</span>
         </div>

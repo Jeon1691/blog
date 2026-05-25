@@ -22,7 +22,7 @@ export function PostCard({
           <p className="text-muted-foreground">{post.description}</p>
         )}
         <div className="flex gap-3 text-sm text-muted-foreground">
-          <time dateTime={post.date}>{post.date}</time>
+          <time dateTime={post.date}>{post.dateDisplay}</time>
           <span>·</span>
           <span>{dict.post.readingTime(post.readingMinutes)}</span>
         </div>
