@@ -3,6 +3,7 @@ import { type Locale, getDictionary } from "@/lib/locales";
 import { site } from "@/lib/site";
 import { LocaleSwitcher } from "./LocaleSwitcher";
 import { SearchTrigger } from "./Search";
+import { ThemeToggle } from "./ThemeToggle";
 
 export function Header({ locale }: { locale: Locale }) {
   const dict = getDictionary(locale);
@@ -26,6 +27,7 @@ export function Header({ locale }: { locale: Locale }) {
             {dict.nav.about}
           </Link>
           <SearchTrigger locale={locale} />
+          <ThemeToggle />
           <LocaleSwitcher current={locale} />
         </nav>
       </div>

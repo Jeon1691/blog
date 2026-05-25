@@ -5,6 +5,7 @@ import { isLocale, locales, type Locale } from "@/lib/locales";
 import { site } from "@/lib/site";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
+import { ThemeScript } from "@/components/ThemeScript";
 
 export const dynamicParams = false;
 
@@ -76,7 +77,10 @@ export default async function LangRootLayout({
   const locale: Locale = lang;
 
   return (
-    <html lang={locale} className="h-full antialiased">
+    <html lang={locale} className="h-full antialiased" suppressHydrationWarning>
+      <head>
+        <ThemeScript />
+      </head>
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <Header locale={locale} />
         <main className="flex-1 w-full">{children}</main>
