@@ -16,7 +16,8 @@ function applyMode(mode: Mode) {
     "(prefers-color-scheme: dark)"
   ).matches;
   const dark = mode === "dark" || (mode === "system" && prefersDark);
-  document.documentElement.classList.toggle("dark", dark);
+  if (dark) document.documentElement.setAttribute("data-theme", "dark");
+  else document.documentElement.removeAttribute("data-theme");
   if (mode === "system") window.localStorage.removeItem("theme");
   else window.localStorage.setItem("theme", mode);
 }
