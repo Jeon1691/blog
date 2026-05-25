@@ -22,7 +22,7 @@ export default async function About({
         <h2>Role</h2>
         <ul>
           <li>
-            <strong>Role</strong>: Android/iOS Engineer · System Architect
+            <strong>Role</strong>: 풀스택 개발자 · 시스템 아키텍트
           </li>
           <li>
             <strong>Timezone</strong>: KST (UTC+9)
@@ -143,7 +143,7 @@ export default async function About({
         <h2>Role</h2>
         <ul>
           <li>
-            <strong>Role</strong>: Android/iOS Engineer · System Architect
+            <strong>Role</strong>: Fullstack Developer · System Architect
           </li>
           <li>
             <strong>Timezone</strong>: KST (UTC+9)
