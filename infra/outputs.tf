@@ -21,3 +21,8 @@ output "github_deploy_role_arn" {
 output "site_url" {
   value = "https://${var.domain}"
 }
+
+output "views_api_url" {
+  description = "Lambda Function URL for per-post view counting"
+  value       = aws_lambda_function_url.views.function_url
+}
