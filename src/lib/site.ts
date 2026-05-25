@@ -13,4 +13,11 @@ export const site = {
   },
   // Cloudflare Worker for view counting (KV-backed).
   viewsApiUrl: "https://develicit-views.develicit.workers.dev",
+  // Google AdSense — leave clientId empty until the AdSense application
+  // is approved. When set (e.g. "ca-pub-1234567890123456"), the loader
+  // script, ads.txt, and AdSlot units all activate automatically.
+  adsense: {
+    clientId: "" as string,
+    postBottomSlot: "" as string,
+  },
 } as const;

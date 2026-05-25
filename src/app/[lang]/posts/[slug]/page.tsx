@@ -6,6 +6,7 @@ import { getAllSlugs, getPostMeta } from "@/lib/posts";
 import { Giscus } from "@/components/Giscus";
 import { JsonLd } from "@/components/JsonLd";
 import { ViewCounter } from "@/components/ViewCounter";
+import { AdSlot } from "@/components/AdSlot";
 import { articleSchema, breadcrumbSchema } from "@/lib/seo";
 import { site } from "@/lib/site";
 
@@ -106,6 +107,10 @@ export default async function PostPage({
       </div>
 
       <hr className="my-16 border-zinc-200 dark:border-zinc-800" />
+
+      <div className="my-10" data-pagefind-ignore>
+        <AdSlot slot={site.adsense.postBottomSlot} />
+      </div>
 
       <section data-pagefind-ignore>
         <h2 className="text-2xl font-semibold tracking-tight mb-6">

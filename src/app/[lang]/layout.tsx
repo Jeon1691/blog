@@ -7,6 +7,7 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { ThemeScript } from "@/components/ThemeScript";
 import { ThemeSync } from "@/components/ThemeSync";
+import { AdsenseScript } from "@/components/AdsenseScript";
 
 export const dynamicParams = false;
 
@@ -81,6 +82,7 @@ export default async function LangRootLayout({
     <html lang={locale} className="h-full antialiased" suppressHydrationWarning>
       <head>
         <ThemeScript />
+        <AdsenseScript />
       </head>
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <ThemeSync />
