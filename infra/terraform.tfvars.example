@@ -1,0 +1,4 @@
+domain      = "develicit.com"
+region      = "ap-northeast-2"
+github_repo = "Jeon1691/blog"
+price_class = "PriceClass_200"

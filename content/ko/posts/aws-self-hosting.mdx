@@ -1,0 +1,42 @@
+---
+title: 개인 블로그를 AWS에 자체 호스팅한 이유
+description: Vercel 대신 S3 + CloudFront + Terraform을 선택한 배경과 비용 분석.
+date: 2026-05-24
+tags: [AWS, Terraform, Next.js, 인프라]
+---
+
+블로그를 만들 때 가장 먼저 부딪히는 질문은 **어디에 띄울 것인가**다.
+대부분의 Next.js 블로그는 Vercel로 흘러간다. 편하기 때문이다.
+
+하지만 정적 사이트의 경우, AWS S3 + CloudFront로 직접 운영하는 편이
+- **저렴하고** (월 1–5달러)
+- **빠르고** (전세계 CDN 엣지)
+- **자유롭다** (벤더 락인 없음, Lambda@Edge 등 확장 가능)
+
+## 구성 요소
+
+| 컴포넌트 | 역할 |
+| --- | --- |
+| **S3** | 정적 자산 저장. 퍼블릭 비활성화, OAC로만 접근 |
+| **CloudFront** | HTTPS, 압축, 보안 헤더, 글로벌 CDN |
+| **ACM** | TLS 인증서 (us-east-1 필수) |
+| **Route 53** | DNS, apex alias |
+| **GitHub Actions** | OIDC 기반 무키 배포 |
+
+## 비용 예상
+
+작은 개인 블로그 트래픽 기준 (월 1만 PV):
+- CloudFront: ~$0.5 (1GB 전송 무료 티어 후)
+- S3: ~$0.1 (스토리지 + GET 요청)
+- Route 53: $0.5 (호스트존)
+
+대략 **월 1달러 미만**. Vercel Pro($20)와 비교하면 차이가 크다.
+
+## 트레이드오프
+
+- 초기 설정이 더 복잡 (Terraform 학습)
+- 인스턴트 미리보기 환경은 직접 만들어야 함
+- 이미지 최적화는 직접 (CloudFront + Lambda@Edge 또는 빌드타임)
+
+하지만 한 번 만들면 거의 손이 안 간다. 게다가 Terraform으로
+인프라가 코드로 박제되니, 재현 가능성이 100%다.

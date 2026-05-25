@@ -1,0 +1,42 @@
+---
+title: Why I self-host my blog on AWS
+description: Choosing S3 + CloudFront + Terraform over Vercel — the reasoning and cost breakdown.
+date: 2026-05-24
+tags: [AWS, Terraform, Next.js, infra]
+---
+
+When building a blog, the first question is *where to host it*. Most
+Next.js blogs end up on Vercel — it's frictionless.
+
+For a static site, though, running it yourself on AWS S3 + CloudFront is
+- **cheap** (under $5/mo)
+- **fast** (global CDN edge)
+- **free of lock-in** (extensible with Lambda@Edge, etc.)
+
+## The pieces
+
+| Component | Role |
+| --- | --- |
+| **S3** | Static asset storage, private, OAC-only access |
+| **CloudFront** | HTTPS, compression, security headers, global CDN |
+| **ACM** | TLS cert (must live in us-east-1) |
+| **Route 53** | DNS, apex alias |
+| **GitHub Actions** | Keyless deploys via OIDC |
+
+## Cost estimate
+
+For a small personal blog (~10k pageviews/month):
+- CloudFront: ~$0.5 (after the 1GB free tier)
+- S3: ~$0.1 (storage + GET requests)
+- Route 53: $0.5 (hosted zone)
+
+About **a dollar a month**. Compared to Vercel Pro ($20), the gap is wide.
+
+## Trade-offs
+
+- More upfront setup (Terraform learning curve)
+- Preview environments are DIY
+- Image optimization is on you (CloudFront + Lambda@Edge or build-time)
+
+Once it's running, though, maintenance is essentially zero. And because
+the infra lives in Terraform, reproducibility is 100%.
