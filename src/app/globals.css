@@ -30,6 +30,15 @@ body {
   font-family: var(--font-sans);
 }
 
+.prose :is(h1, h2, h3, h4, h5, h6) a {
+  text-decoration: none;
+  color: inherit;
+  font-weight: inherit;
+}
+.prose :is(h1, h2, h3, h4, h5, h6) a:hover {
+  color: var(--muted);
+}
+
 [data-rehype-pretty-code-figure] pre {
   padding: 1rem;
   overflow-x: auto;
