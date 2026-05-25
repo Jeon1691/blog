@@ -7,8 +7,8 @@ export const site = {
   email: "jeon1691951@gmail.com",
   giscus: {
     repo: "Jeon1691/blog" as `${string}/${string}`,
-    repoId: "",
+    repoId: "R_kgDOSm-G5Q",
     category: "Announcements",
-    categoryId: "",
+    categoryId: "DIC_kwDOSm-G5c4C9x7E",
   },
 } as const;

@@ -1,0 +1,177 @@
+---
+title: AI 시대의 '좋은 PR' 정책 재정의 — 무엇을, 왜, 어떻게 바꿔야 하는가
+description: AI 도입 이후 PR의 생산성·크기·생성 속도가 모두 변했다. PR의 단위·리뷰 대상·게이트, 세 축을 동시에 재설계해야 한다.
+date: 2026-05-25
+tags: [PR, 코드리뷰, AI, DORA, SDD]
+---
+
+> 💡 **한 줄 요약** — AI 도입 이후 PR의 생산성·크기·생성 속도가 모두 변했다. 기존의 '작게·자주·라인별 리뷰' 정책은 그대로 유지하기 어렵다. **무엇을 PR로 묶을지(단위), 무엇을 리뷰할지(대상), 누가 막을지(게이트)** 세 축을 동시에 재설계해야 한다.
+
+## 1. 문제 정의 — 왜 지금 '좋은 PR'이 흔들리는가
+
+AI 도입 이후 1차 연구·산업 리포트가 일관되게 보여주는 패턴이 있다. **개인 생산성은 오르지만, 조직 단위의 전달 성과(delivery performance)는 오히려 떨어지거나 정체**된다.
+
+- **Google DORA 2024 Report**: AI 채택률 25% 증가 시 코드 품질 +3.4%, 코드 리뷰 속도 +3.1%, 문서 품질 +7.5%로 개인 단위 지표는 개선되지만, **delivery throughput −1.5%, delivery stability −7.2%** 의 부정적 효과가 관측된다. 75%의 응답자가 AI 산출물을 매일 사용하지만, AI 출력에 대한 신뢰는 39%에 그친다.[^1][^2]
+- **Google DORA 2025 State of AI-assisted Software Development**: AI는 '증폭기(amplifier)'이며, 조직 시스템의 기존 강점·약점을 함께 키운다. 도구보다 **기반 조직 시스템에 대한 전략적 투자**가 ROI를 좌우한다.[^3]
+- **Faros AI 'Productivity Paradox' 2025 (10,000+ developers, 1,255 teams)**: AI 채택률이 높은 팀은 작업 완료 +21%, PR 머지 +98% 증가했지만 **PR 리뷰 시간 +91% 증가**. Amdahl의 법칙대로 가장 느린 단계(리뷰)가 전체 속도를 결정한다.[^4][^5]
+- **Faros AI Engineering Report 2026 ('Acceleration Whiplash')**: 시니어가 'AI 리뷰 세금(senior engineer tax)'을 떠안는 패턴. **첫 리뷰까지 시간 중앙값 +156.6%, 평균 리뷰 소요 시간 +199.6%, 리뷰 체류 시간 중앙값 +441.5%**. AI 생성물은 표면상 그럴듯해 보여 결함이 깊이 숨고, 리뷰가 인지적으로 더 비싸진다.[^6]
+- **GitClear 2025 AI Copilot Code Quality (211M LOC 분석, 2021–2025)**: 리팩토링/재사용을 의미하는 **'moved' 코드 비중 25% → 10% 미만으로 감소**, **복사/붙여넣기 8% → 약 18%로 증가**. 사상 처음으로 '복사된' 라인 수가 '이동된' 라인 수를 초과했다. AI는 단기 산출 최적화, 장기 유지보수성에 부정적 신호.[^7]
+- **Peng et al., arXiv 2302.06590 (GitHub/Microsoft)**: 통제 실험에서 Copilot 사용 그룹이 동일 과제를 **55.8% 더 빠르게** 완료. 개인 코딩 속도의 상승은 실증됨.[^8]
+- **SmartBear–Cisco Code Review Study (업계 최대 규모 코드 리뷰 연구)**: 리뷰당 **200–400 LOC, 시간당 500 LOC 이하, 60–90분 이내**에서 결함 검출률 70–90% 유지. 그 임계를 넘기면 결함 검출 능력이 가파르게 떨어짐. 즉, AI가 만들어내는 1,000줄급 PR은 인간 리뷰어가 구조적으로 검출 불가.[^9][^10]
+
+| 기존 정책의 전제 | AI 이후 현실 (출처) |
+| --- | --- |
+| PR은 200~400줄 이내로 작게 쪼갠다 | SmartBear–Cisco 연구가 정한 ~400 LOC 임계는 인간 인지 한계 기반인데, AI는 한 번에 그 임계 이상을 손쉽게 생성 |
+| 리뷰어가 라인별로 읽고 LGTM | Faros AI: PR 머지 +98%, 리뷰 시간 +91%; 2026 후속 데이터에서는 리뷰 체류 시간 중앙값 +441.5% |
+| 코드 작성자가 의도를 가장 잘 안다 | 의도의 원본은 사람의 머릿속·스펙이고, 코드는 AI 산출물 — Spec-Driven Development 흐름 (arXiv 2602.00180) |
+| 코드 품질은 리팩토링·재사용으로 유지 | GitClear 2025: moved 25%→`<10%`, copy/paste 8%→~18% |
+| 리뷰어 1~2명이 머지 게이트 | DORA 2024: throughput −1.5%, stability −7.2% — 개인 속도 ↑ vs 시스템 성과 ↓ |
+
+## 2. 무엇을 바꿔야 하는가 — 정책 3축 재설계
+
+### 축 1. PR의 '단위' 정책 — 줄 수가 아니라 '하나의 의도'
+
+- 기존: *"PR은 400줄 이내"* (SmartBear–Cisco 기반 산업 컨센서스)[^10]
+- 변경: ***"PR은 하나의 검증 가능한 의도(intent) 단위"*** + 줄 수 캡은 보조 지표로 강등
+
+구체적 규칙:
+
+- **1 PR = 1 수용 기준(Acceptance Criteria) 단위**. 줄 수가 800줄이어도 "하나의 명세 통과"라면 허용.
+- AI가 생성한 보일러플레이트(테스트, 마이그레이션, 자동 생성 코드)는 **별도 라벨**로 분리 표시 → 리뷰어가 무엇을 정독하고 무엇을 훑을지 판단 가능. (GitClear가 지적한 'moved vs copy/paste' 구분이 정책 신호가 됨.)[^7]
+- 줄 수 캡은 *경고선*으로만: SmartBear–Cisco 임계(~400 LOC, ~500 LOC/hour) 초과 시 자동 댓글로 "Intent를 더 쪼갤 수 있는가?" 질문.[^9]
+
+### 축 2. '리뷰 대상' 정책 — 코드가 아니라 의도
+
+> 🎯 **Reviewer → Verifier로 역할 전환**. diff가 아니라 스펙·수용 기준·제약 조건을 리뷰한다. Spec-Driven Development (SDD)는 '스펙을 1차 산출물, 코드를 2차 산출물'로 두는 접근으로, AI 시대의 코드 리뷰 병목 해소 방향과 일치한다.[^11]
+
+SDD 계열 연구에서 검증된 효과:
+
+- **Constitutional Spec-Driven Development (arXiv 2602.02584)**: 명세 단계에서 제약을 헌법(constitution)처럼 강제하면 동일 도메인에서 **보안 결함 73% 감소**, 개발 속도는 유지.[^12]
+- **Red Hat 가이드**: 즉흥적 'vibe coding' 대비, SDD는 AI 산출물의 일관성·검증성을 끌어올린다.[^13]
+
+새 PR 템플릿에 들어가야 할 항목:
+
+1. **Intent (의도)** — 무엇을, 왜 바꾸는가 (1~3문장)
+2. **Acceptance Criteria** — 무엇이 통과해야 '완료'인가 (Given/When/Then 또는 체크리스트, Gherkin 형식 권장)[^11]
+3. **Constraints / Non-goals** — 건드리지 않아야 할 영역, 도메인 계약
+4. **Verification Evidence** — 테스트 결과, 스크린샷, 로그, 벤치마크 (사람이 *재현 가능*해야 함)
+5. **AI Co-author 비율 / 위험 영역** — AI가 생성한 부분과 사람이 검증한 부분 표기
+6. **Rollback Plan** — 앱처럼 즉시 롤백 어려운 환경이라면 특히 필수
+
+### 축 3. '게이트' 정책 — 단일 승인 → 다층 신뢰(Swiss Cheese)
+
+단일 LGTM 게이트로는 더 이상 막을 수 없다. **Google 엔지니어링 관행(eng-practices)** 도 "코드 리뷰의 1차 목적은 코드베이스의 건강도 개선"이라 명시하지만, AI 시대에는 이를 '다층 게이트'로 분산해야 1인 리뷰어 병목을 피한다.[^14]
+
+| Layer | 책임 | 머지 차단 가능? |
+| --- | --- | --- |
+| L1. Deterministic Guardrails | 린트, 타입, 단위/통합 테스트, 보안 스캔 (DORA 2024: 'basics of small batch + robust testing' 강조)[^1] | ✅ 자동 차단 |
+| L2. AI Code Review (Copilot/CodeRabbit 등) | 구문·스타일·단순 버그·보안 패턴 1차 필터. CACM (Ziegler et al., GitHub Research)이 측정한 'AI가 떠받치는 인지 부담 감소' 효과 활용.[^15] | ⚠️ 경고만 (False Positive 관리) |
+| L3. Spec / Intent Review | 사람이 '의도와 수용 기준' 검토 — SDD 권장.[^11] | ✅ 차단 — *코드 작성 전*에 수행 권장 |
+| L4. Human Block Zone | Tribal Knowledge · Regulated Path · 네이티브 크리티컬 패스만 인간 필수 | ✅ 차단 |
+| L5. Post-merge Observability | 모니터링, Feature Flag, Canary, 자동 롤백 (DORA의 안정성 지표 보강 수단)[^1] | 🔄 사후 복구 |
+
+## 3. 앱 개발 환경 특수 고려사항
+
+"빠르게 배포하고 더 빠르게 되돌린다"는 패러다임은 서버·웹에 강하지만, **모바일 앱은 배포 주기·롤백 제약**이 있다. DORA 2024가 강조한 'small batch + robust testing' 원칙은 모바일에서 더 무겁게 적용해야 한다.[^1]
+
+- **배포 전 검증(L1~L4) 비중을 더 두껍게.** 배포 후 관찰(L5)에 의존하는 비율을 낮춘다.
+- **네이티브 크리티컬 패스(결제, 서명, 키 관리, WalletConnect)는 L4 인간 블록 필수.** AI 자동 머지 영역에서 제외.
+- **UI 스냅샷 테스트 · UI 자동화 테스트**를 L1 가드레일에 포함. 시각적 회귀는 옵저버빌리티로 잡기 어렵다.
+- **CodePush/OTA 가능한 영역과 네이티브 영역을 PR 라벨로 분리** → 롤백 비용 차이를 정책에 반영.
+- **강제 업데이트 정책**과 '되돌리기 비용'을 PR 본문에 명시.
+
+## 4. 메트릭 — 무엇을 측정해야 정책이 살아 있는가
+
+정책 변경의 효과를 보려면 DORA의 4 keys (Throughput / Stability) 위에 AI 시대 특화 메트릭을 얹어야 한다.[^1][^4]
+
+| 메트릭 | 의미 / 근거 | 목표 방향 |
+| --- | --- | --- |
+| PR Review Lead Time (중앙값/평균) | Faros AI 보고서가 가장 크게 악화시킨 핵심 지표.[^6] | ↓ 감소 |
+| Code Churn Rate (신규 코드 2주 내 수정 비율) | GitClear가 측정한 '단기 churn 증가'를 팀 차원에서 추적.[^7] | ↓ 감소 |
+| Copy/Paste vs Moved Code Ratio | GitClear 핵심 신호 — 재사용 대비 중복 비율.[^7] | Moved ↑, Copy/Paste ↓ |
+| Rubber Stamp Rate (리뷰 코멘트 0~1개 PR 비율) | 리뷰 형식화 신호. SmartBear가 권장한 '적극적 리뷰' 원칙과 직결.[^16] | ↓ 감소 |
+| Delivery Throughput / Change Failure Rate / MTTR | DORA 4 keys — 조직 단위 효과 확인.[^1] | Throughput ↑, Failure ↓, MTTR ↓ |
+| Spec Review Coverage | 수용 기준이 명시된 PR 비율 — SDD 채택률 지표.[^11] | ↑ 증가 |
+
+## 5. 단계별 전환 로드맵 (4 Phase)
+
+| Phase | 기간 | 핵심 변화 | Done 기준 |
+| --- | --- | --- | --- |
+| 0. 측정 | 2주 | DORA 4 keys + Faros 식 리뷰 메트릭 + GitClear 코드 churn 기준선 수집[^1][^7] | Baseline 대시보드 확보 |
+| 1. PR 템플릿 + AI 1차 리뷰 도입 | 1개월 | 새 PR 템플릿(Intent/AC/Evidence) 강제, GitHub Copilot Code Review 등 L2 도입[^15] | 인간 코멘트 중 구문·스타일 80% 감소 |
+| 2. Spec/Intent Review 파일럿 | 2개월 | 1~2개 팀에서 코딩 전 수용 기준 리뷰 도입 (SDD)[^11] | Spec-to-Code Drift 측정 가능 |
+| 3. Human Block Zone 분리 | 지속 | 크리티컬 패스만 인간 차단, 나머지는 L1+L2+L5 자동 승인 (DORA 'basics' 원칙 유지)[^1] | 리뷰 대기 시간 50%↓, 프로덕션 결함률 유지 |
+
+## 6. 열린 질문 — 정직하게 남겨두기
+
+- **스펙 작성 능력의 병목** — 코드 리뷰 병목이 '스펙 리뷰 병목'으로 이동할 위험. SDD 연구도 이 한계를 명시한다.[^11]
+- **주니어 성장 경로** — 전통적 코드 리뷰는 학습 메커니즘이었다 (Google eng-practices의 멘토링 강조).[^14] 검증자 중심 모델에서 무엇으로 대체할 것인가.
+- **법적 책임** — AI 생성 + AI 검증 코드의 장애 책임 귀속. DORA 2024가 보고한 'AI 출력 신뢰도 39%' 수치가 가리키는 빈틈.[^1]
+- **Same-kind Verification Blind Spot** — 같은 모델 패밀리가 생성·검증할 때 체계적 편향이 양쪽에 동일 재현.
+- **개인 vs 조직 격차** — Faros·DORA가 공통적으로 보여준 '개인 생산성 ↑, 조직 전달 성과 ↓' 패러독스를 어떻게 좁힐 것인가.[^4][^1]
+
+## 7. 결론 — 한 줄로
+
+> 📌 **"좋은 PR"은 더 이상 '작은 diff'가 아니다. '검증 가능한 하나의 의도'와 '그 의도를 다층으로 보증한 증거'를 담은 PR이다.**
+>
+> 줄 수 정책은 SmartBear–Cisco의 임계를 *경고선*으로만 두고, 의도·수용 기준·다층 게이트가 1순위 정책으로 올라와야 한다.
+
+---
+
+### 참고 자료
+
+**Google DORA Research**
+
+- [Accelerate State of DevOps Report 2024](https://dora.dev/research/2024/dora-report/)
+- [2025 State of AI-assisted Software Development](https://dora.dev/dora-report-2025/)
+- [Announcing the 2024 DORA report — Google Cloud Blog](https://cloud.google.com/blog/products/devops-sre/announcing-the-2024-dora-report)
+
+**Faros AI Research**
+
+- [The AI Productivity Paradox Report 2025](https://www.faros.ai/blog/ai-software-engineering)
+- [Are AI coding assistants really saving time, money and effort?](https://www.faros.ai/blog/are-ai-coding-assistants-really-saving)
+- [The AI Engineering Report 2026: The AI Acceleration Whiplash](https://www.faros.ai/blog/ai-acceleration-whiplash-takeaways)
+
+**GitClear**
+
+- [AI Copilot Code Quality: 2025 Data (211M LOC, 2021–2025)](https://www.gitclear.com/ai_assistant_code_quality_2025_research)
+
+**SmartBear / Cisco Code Review Study**
+
+- [Code Review at Cisco Systems (full PDF)](https://static0.smartbear.co/support/media/resources/cc/book/code-review-cisco-case-study.pdf)
+- [What Is Code Review? — 200–400 LOC / 500 LOC/hr 임계](https://smartbear.com/learn/code-review/what-is-code-review/)
+- [Best Practices for Peer Code Review](https://smartbear.com/learn/code-review/best-practices-for-peer-code-review/)
+
+**Google Engineering Practices**
+
+- [The Standard of Code Review](https://google.github.io/eng-practices/review/reviewer/standard.html)
+- [eng-practices (GitHub)](https://github.com/google/eng-practices)
+
+**학술 논문 (arXiv / CACM)**
+
+- Peng et al., [*The Impact of AI on Developer Productivity: Evidence from GitHub Copilot* — arXiv 2302.06590](https://arxiv.org/abs/2302.06590)
+- Ziegler et al., [*Measuring GitHub Copilot's Impact on Productivity* — Communications of the ACM](https://cacm.acm.org/research/measuring-github-copilots-impact-on-productivity/)
+- [*Spec-Driven Development: From Code to Contract in the Age of AI Coding Assistants* — arXiv 2602.00180](https://arxiv.org/abs/2602.00180)
+- [*Constitutional Spec-Driven Development: Enforcing Security by Construction* — arXiv 2602.02584](https://arxiv.org/abs/2602.02584)
+
+**업계 분석**
+
+- [McKinsey — Unleashing developer productivity with generative AI](https://www.mckinsey.com/capabilities/tech-and-ai/our-insights/unleashing-developer-productivity-with-generative-ai)
+- [Red Hat — How spec-driven development improves AI coding quality](https://developers.redhat.com/articles/2025/10/22/how-spec-driven-development-improves-ai-coding-quality)
+
+[^1]: [Accelerate State of DevOps Report 2024 — DORA](https://dora.dev/research/2024/dora-report/)
+[^2]: [Announcing the 2024 DORA report — Google Cloud Blog](https://cloud.google.com/blog/products/devops-sre/announcing-the-2024-dora-report)
+[^3]: [2025 State of AI-assisted Software Development — DORA](https://dora.dev/dora-report-2025/)
+[^4]: [The AI Productivity Paradox Report 2025 — Faros AI](https://www.faros.ai/blog/ai-software-engineering)
+[^5]: [Are AI coding assistants really saving time, money and effort? — Faros AI](https://www.faros.ai/blog/are-ai-coding-assistants-really-saving)
+[^6]: [The AI Engineering Report 2026: The AI Acceleration Whiplash — Faros AI](https://www.faros.ai/blog/ai-acceleration-whiplash-takeaways)
+[^7]: [AI Copilot Code Quality 2025 — GitClear](https://www.gitclear.com/ai_assistant_code_quality_2025_research)
+[^8]: [Peng et al., The Impact of AI on Developer Productivity — arXiv 2302.06590](https://arxiv.org/abs/2302.06590)
+[^9]: [Code Review at Cisco Systems — SmartBear (PDF)](https://static0.smartbear.co/support/media/resources/cc/book/code-review-cisco-case-study.pdf)
+[^10]: [What Is Code Review? — SmartBear](https://smartbear.com/learn/code-review/what-is-code-review/)
+[^11]: [Spec-Driven Development — arXiv 2602.00180](https://arxiv.org/abs/2602.00180)
+[^12]: [Constitutional Spec-Driven Development — arXiv 2602.02584](https://arxiv.org/abs/2602.02584)
+[^13]: [How spec-driven development improves AI coding quality — Red Hat](https://developers.redhat.com/articles/2025/10/22/how-spec-driven-development-improves-ai-coding-quality)
+[^14]: [The Standard of Code Review — Google eng-practices](https://google.github.io/eng-practices/review/reviewer/standard.html)
+[^15]: [Measuring GitHub Copilot's Impact on Productivity — CACM (Ziegler et al.)](https://cacm.acm.org/research/measuring-github-copilots-impact-on-productivity/)
+[^16]: [Best Practices for Peer Code Review — SmartBear](https://smartbear.com/learn/code-review/best-practices-for-peer-code-review/)

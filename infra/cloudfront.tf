@@ -21,8 +21,20 @@ resource "aws_cloudfront_function" "rewrite" {
         return request;
       }
 
-      // No file extension -> trailing-slash redirect (Next.js trailingSlash:true)
       var lastSegment = uri.split("/").pop();
+
+      // Next.js metadata image responses (no extension, served as PNG).
+      var imageEndpoints = {
+        "icon": 1,
+        "apple-icon": 1,
+        "opengraph-image": 1,
+        "twitter-image": 1
+      };
+      if (imageEndpoints[lastSegment]) {
+        return request;
+      }
+
+      // No file extension -> trailing-slash redirect (Next.js trailingSlash:true)
       if (lastSegment.indexOf(".") === -1) {
         return {
           statusCode: 301,
