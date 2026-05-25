@@ -29,7 +29,7 @@ const surfaces = [
 
 export function DeploymentSurfaces() {
   return (
-    <Figure caption="Fig 5. 배포 면별 롤백 시간 — 되돌리기 비용이 클수록 배포 전 게이트(L1~L4)가 두꺼워야 한다">
+    <Figure caption="Fig 6. 배포 면별 롤백 시간 — 되돌리기 비용이 클수록 배포 전 게이트(L1~L4)가 두꺼워야 한다">
       <div className="space-y-5">
         {surfaces.map((s) => (
           <div

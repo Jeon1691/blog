@@ -65,7 +65,7 @@ function Badge({ variant, children }: { variant: Variant; children: string }) {
 
 export function SwissCheeseGate() {
   return (
-    <Figure caption="Fig 4. 다층 신뢰 게이트 — 단일 LGTM 대신 L1~L5가 각각 다른 위험을 막는다">
+    <Figure caption="Fig 5. 다층 신뢰 게이트 — 단일 LGTM 대신 L1~L5가 각각 다른 위험을 막는다">
       <div className="space-y-2">
         {layers.map((l) => (
           <div

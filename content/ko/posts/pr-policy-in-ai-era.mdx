@@ -11,6 +11,7 @@ import { PhaseRoadmap } from "@/components/diagrams/PhaseRoadmap";
 import { CodeQualityShift } from "@/components/diagrams/CodeQualityShift";
 import { ReviewCognitiveLimit } from "@/components/diagrams/ReviewCognitiveLimit";
 import { DeploymentSurfaces } from "@/components/diagrams/DeploymentSurfaces";
+import { PRTemplate } from "@/components/diagrams/PRTemplate";
 
 > AI 도입 이후 PR의 생산성·크기·생성 속도가 모두 변했다. 기존의 '작게·자주·라인별 리뷰' 정책은 그대로 유지하기 어렵다. **무엇을 PR로 묶을지(단위), 무엇을 리뷰할지(대상), 누가 막을지(게이트)** 세 축을 동시에 재설계해야 한다.
 
@@ -70,6 +71,8 @@ SDD 계열 연구에서 검증된 효과:
 4. **Verification Evidence** — 테스트 결과, 스크린샷, 로그, 벤치마크 (사람이 *재현 가능*해야 함)
 5. **AI Co-author 비율 / 위험 영역** — AI가 생성한 부분과 사람이 검증한 부분 표기
 6. **Rollback Plan** — 앱처럼 즉시 롤백 어려운 환경이라면 특히 필수
+
+<PRTemplate />
 
 ### 축 3. '게이트' 정책 — 단일 승인 → 다층 신뢰(Swiss Cheese)
 
