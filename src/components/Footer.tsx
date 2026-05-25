@@ -8,7 +8,7 @@ export function Footer({ locale }: { locale: Locale }) {
     <footer className="border-t border-zinc-200 dark:border-zinc-800">
       <div className="mx-auto max-w-3xl px-6 py-8 flex flex-col sm:flex-row gap-4 sm:items-center justify-between text-sm text-muted-foreground">
         <div>
-          © {new Date().getFullYear()} {site.author} · {dict.footer.builtWith}
+          © {new Date().getFullYear()} {site.author}
         </div>
         <div className="flex gap-4">
           <Link

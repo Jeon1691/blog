@@ -30,7 +30,6 @@ export const dictionaries = {
     footer: {
       rss: "RSS",
       github: "GitHub",
-      builtWith: "Next.js + AWS로 자체 호스팅",
     },
   },
   en: {
@@ -55,7 +54,6 @@ export const dictionaries = {
     footer: {
       rss: "RSS",
       github: "GitHub",
-      builtWith: "Self-hosted on AWS with Next.js",
     },
   },
 } satisfies Record<Locale, unknown>;
