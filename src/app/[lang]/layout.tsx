@@ -6,6 +6,7 @@ import { site } from "@/lib/site";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { ThemeScript } from "@/components/ThemeScript";
+import { ThemeSync } from "@/components/ThemeSync";
 
 export const dynamicParams = false;
 
@@ -82,6 +83,7 @@ export default async function LangRootLayout({
         <ThemeScript />
       </head>
       <body className="min-h-full flex flex-col bg-background text-foreground">
+        <ThemeSync />
         <Header locale={locale} />
         <main className="flex-1 w-full">{children}</main>
         <Footer locale={locale} />
