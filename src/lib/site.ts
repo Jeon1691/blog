@@ -24,6 +24,6 @@ export const site = {
   // the site at each provider. Empty values are omitted from meta.
   verification: {
     google: "" as string, // Google Search Console — meta content value
-    naver: "" as string, // Naver Search Advisor — meta content value
+    naver: "2854d7635e84943afbce3e52b6f84fb5467b3e76" as string, // Naver Search Advisor
   },
 } as const;

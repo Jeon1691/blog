@@ -28,4 +28,6 @@ regexes = [
   # CloudFront distribution & Route 53 zone IDs (public identifiers)
   '''E11DM4YK5DJO5T''',
   '''Z02640962CC6GX9G580VD''',
+  # Public webmaster verification tokens (Naver / Google Search Console)
+  '''2854d7635e84943afbce3e52b6f84fb5467b3e76''',
 ]
