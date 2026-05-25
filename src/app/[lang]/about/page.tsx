@@ -121,14 +121,114 @@ export default async function About({
     ) : (
       <>
         <p>
-          Hi — <strong>{dict.siteName}</strong> is a personal blog covering
-          Next.js, AWS, Korean fintech/stablecoins, and AI infrastructure.
+          Hi — this is <strong>{dict.siteName}</strong>, a personal engineering
+          blog. Below is a quick summary of how I work.
+        </p>
+
+        <h2>Role</h2>
+        <ul>
+          <li>
+            <strong>Role</strong>: Android/iOS Engineer · System Architect
+          </li>
+          <li>
+            <strong>Timezone</strong>: KST (UTC+9)
+          </li>
+        </ul>
+
+        <h2>Summary</h2>
+        <p>Mobile (Android/iOS) development + system/app architecture design.</p>
+        <ul>
+          <li>
+            Communication: <strong>Slack / docs first, voice minimized</strong>
+          </li>
+          <li>
+            Principle: <strong>pick the most efficient approach</strong>
+          </li>
+        </ul>
+
+        <h2>Responsibilities</h2>
+        <ul>
+          <li>Android/iOS feature delivery</li>
+          <li>
+            Architecture: modularity, boundary &amp; dependency management,
+            scalability &amp; maintainability
+          </li>
+          <li>Stability &amp; Performance: Crash/ANR, Memory, Networking</li>
+          <li>Tech debt / legacy improvement</li>
+        </ul>
+
+        <h2>Working with me</h2>
+
+        <h3>Contact</h3>
+        <ul>
+          <li>
+            <strong>Default</strong>: Slack DM + relevant links
+          </li>
+          <li>
+            <strong>Important decisions / context</strong>: Confluence / Design
+            Document
+          </li>
+        </ul>
+
+        <h3>Fast path</h3>
+        <p>Including the following with your request speeds things up.</p>
+        <ol>
+          <li>
+            <strong>Goal / Deadline</strong>
+          </li>
+          <li>
+            <strong>Context</strong> — why now, scope of impact
+          </li>
+          <li>
+            <strong>Repro Steps</strong> + Logs / Screenshots
+          </li>
+          <li>
+            <strong>Constraints</strong> — performance / security / compatibility
+          </li>
+          <li>
+            <strong>Options</strong> — if you have any
+          </li>
+        </ol>
+
+        <h3>Communication / Decisions</h3>
+        <p>
+          Preferred format:{" "}
+          <strong>conclusion → rationale → options → recommendation</strong>
         </p>
         <p>
-          The site is self-hosted using Next.js static export on S3 + CloudFront,
-          managed by Terraform and deployed via GitHub Actions. All code is
-          public.
+          When debates drag on: list options → agree on criteria → owner
+          decides → record in docs.
         </p>
+
+        <h3>PR</h3>
+        <ul>
+          <li>
+            <strong>AI PR preferred</strong>
+          </li>
+          <li>
+            If a human must do it, <strong>small PRs</strong> preferred — Review
+            / Risk / Revert cost is lower
+          </li>
+        </ul>
+
+        <h3>Meetings</h3>
+        <p>
+          <strong>Share agenda + questions first.</strong>
+        </p>
+
+        <h2>Can help with</h2>
+        <ul>
+          <li>Mobile App</li>
+          <li>System Architecture</li>
+          <li>Performance &amp; Stability</li>
+        </ul>
+
+        <h2>Links</h2>
+        <ul>
+          <li>
+            <strong>Calendar / office hours</strong>: Request a meeting
+          </li>
+        </ul>
       </>
     );
 
