@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { isLocale, getDictionary } from "@/lib/locales";
 import { getAllPosts } from "@/lib/posts";
 import { PostCard } from "@/components/PostCard";
+import { JsonLd } from "@/components/JsonLd";
+import { websiteSchema } from "@/lib/seo";
 import { site } from "@/lib/site";
 
 export default async function Home({
@@ -17,6 +19,7 @@ export default async function Home({
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-16">
+      <JsonLd data={websiteSchema(lang)} />
       <section className="mb-16">
         <h1 className="text-5xl font-bold tracking-tight mb-3">
           {site.name}

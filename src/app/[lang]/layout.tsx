@@ -27,6 +27,16 @@ export async function generateMetadata({
     metadataBase: new URL(site.url),
     title: { default: title, template: `%s — ${site.name}` },
     description,
+    applicationName: site.name,
+    authors: [{ name: site.author, url: site.authorUrl }],
+    creator: site.author,
+    publisher: site.author,
+    keywords:
+      lang === "ko"
+        ? ["블로그", "Next.js", "AWS", "Terraform", "한국 핀테크", "AI 인프라"]
+        : ["blog", "Next.js", "AWS", "Terraform", "Korean fintech", "AI infra"],
+    formatDetection: { telephone: false, email: false, address: false },
+    robots: { index: true, follow: true, googleBot: { index: true, follow: true } },
     alternates: {
       canonical: `/${lang}/`,
       languages: {
@@ -48,8 +58,9 @@ export async function generateMetadata({
       description,
       siteName: site.name,
       locale: lang === "ko" ? "ko_KR" : "en_US",
+      alternateLocale: lang === "ko" ? ["en_US"] : ["ko_KR"],
     },
-    twitter: { card: "summary", title, description },
+    twitter: { card: "summary_large_image", title, description },
   };
 }
 

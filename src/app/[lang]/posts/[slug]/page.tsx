@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { isLocale, getDictionary, locales } from "@/lib/locales";
 import { getAllSlugs, getPostMeta } from "@/lib/posts";
 import { Giscus } from "@/components/Giscus";
+import { JsonLd } from "@/components/JsonLd";
+import { articleSchema, breadcrumbSchema } from "@/lib/seo";
 import { site } from "@/lib/site";
 
 export const dynamicParams = false;
@@ -29,6 +31,8 @@ export async function generateMetadata({
   return {
     title: meta.title,
     description: meta.description,
+    keywords: meta.tags,
+    authors: [{ name: site.author, url: site.authorUrl }],
     alternates: { canonical: `/${lang}/posts/${slug}/` },
     openGraph: {
       type: "article",
@@ -37,6 +41,13 @@ export async function generateMetadata({
       url: `${site.url}/${lang}/posts/${slug}/`,
       publishedTime: meta.date,
       tags: meta.tags,
+      authors: [site.author],
+      locale: lang === "ko" ? "ko_KR" : "en_US",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: meta.title,
+      description: meta.description,
     },
   };
 }
@@ -52,8 +63,21 @@ export default async function PostPage({
   const meta = getPostMeta(lang, slug);
   const { default: Post } = await import(`@/../content/${lang}/posts/${slug}.mdx`);
 
+  const crumb = breadcrumbSchema(lang, [
+    { name: site.name, url: `${site.url}/${lang}/` },
+    {
+      name: dict.nav.posts,
+      url: `${site.url}/${lang}/posts/`,
+    },
+    {
+      name: meta.title,
+      url: `${site.url}/${lang}/posts/${slug}/`,
+    },
+  ]);
+
   return (
     <article className="mx-auto max-w-3xl px-6 py-16" data-pagefind-body>
+      <JsonLd data={[articleSchema(meta), crumb]} />
       <div className="mb-10">
         <Link
           href={`/${lang}/posts/`}
