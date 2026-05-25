@@ -35,25 +35,29 @@ export function PhaseRoadmap() {
   return (
     <Figure caption="Fig 1. 4단계 전환 로드맵 — 측정 → AI 1차 리뷰 → Spec 파일럿 → Human Block Zone 분리">
       <div className="relative">
-        <div className="absolute top-7 left-[12.5%] right-[12.5%] h-px bg-zinc-200" />
+        <div className="absolute top-7 left-[12.5%] right-[12.5%] h-px bg-zinc-300 dark:bg-zinc-700 hidden sm:block" />
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-3 relative">
           {phases.map((p) => (
             <div
               key={p.id}
               className="flex flex-col items-center text-center"
             >
-              <div className="relative z-10 w-14 h-14 rounded-full bg-teal-600 text-white flex items-center justify-center font-bold text-xl shadow-sm">
+              <div className="relative z-10 w-14 h-14 rounded-full bg-zinc-900 dark:bg-zinc-100 text-zinc-50 dark:text-zinc-900 flex items-center justify-center font-bold text-xl">
                 {p.id}
               </div>
-              <div className="mt-3 inline-flex rounded-full bg-teal-50 text-teal-700 px-2.5 py-0.5 text-xs font-semibold tracking-tight">
+              <div className="mt-3 inline-flex rounded-full bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 px-2.5 py-0.5 text-xs font-semibold tracking-tight">
                 {p.duration}
               </div>
-              <div className="mt-2 font-bold text-sm">{p.title}</div>
-              <p className="mt-2 text-xs text-zinc-600 leading-snug">
+              <div className="mt-2 font-bold text-sm text-zinc-900 dark:text-zinc-100">
+                {p.title}
+              </div>
+              <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-400 leading-snug">
                 {p.body}
               </p>
-              <div className="mt-3 text-xs text-zinc-500 leading-snug">
-                <span className="font-medium text-zinc-700">Done.</span>{" "}
+              <div className="mt-3 text-xs text-zinc-500 dark:text-zinc-500 leading-snug">
+                <span className="font-medium text-zinc-700 dark:text-zinc-300">
+                  Done.
+                </span>{" "}
                 {p.done}
               </div>
             </div>
