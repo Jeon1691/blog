@@ -5,6 +5,7 @@ import { isLocale, getDictionary, locales } from "@/lib/locales";
 import { getAllSlugs, getPostMeta } from "@/lib/posts";
 import { Giscus } from "@/components/Giscus";
 import { JsonLd } from "@/components/JsonLd";
+import { ViewCounter } from "@/components/ViewCounter";
 import { articleSchema, breadcrumbSchema } from "@/lib/seo";
 import { site } from "@/lib/site";
 
@@ -95,6 +96,8 @@ export default async function PostPage({
           <time dateTime={meta.date}>{meta.dateDisplay}</time>
           <span>·</span>
           <span>{dict.post.readingTime(meta.readingMinutes)}</span>
+          <span aria-hidden>·</span>
+          <ViewCounter slug={slug} locale={lang} />
         </div>
       </div>
 

@@ -11,4 +11,6 @@ export const site = {
     category: "Announcements",
     categoryId: "DIC_kwDOSm-G5c4C9x7E",
   },
+  // Cloudflare Worker for view counting; set after `wrangler deploy`.
+  viewsApiUrl: "" as string,
 } as const;

@@ -1,0 +1,31 @@
+title = "develicit blog gitleaks config"
+
+# Inherit gitleaks' default ruleset, then layer project-specific
+# allowlists for known false positives.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Project-wide allowlist"
+
+# Paths that should never be scanned.
+paths = [
+  '''node_modules/''',
+  '''\.next/''',
+  '''out/''',
+  '''pnpm-lock\.yaml''',
+  '''content/.*\.mdx''',
+]
+
+# Identifiers that look like secrets but aren't.
+regexes = [
+  # AWS account ID (public identifier)
+  '''693136615543''',
+  # GitHub repo node ID for Giscus mapping (public)
+  '''R_kgDOSm-G5Q''',
+  # Giscus Discussions category ID (public)
+  '''DIC_kwDOSm-G5c4C9x7E''',
+  # CloudFront distribution & Route 53 zone IDs (public identifiers)
+  '''E11DM4YK5DJO5T''',
+  '''Z02640962CC6GX9G580VD''',
+]

@@ -1,0 +1,7 @@
+name = "develicit-views"
+main = "src/index.js"
+compatibility_date = "2026-05-01"
+
+[[kv_namespaces]]
+binding = "VIEWS"
+id = "51cf291a941b469ca4e7b45b256006be"
