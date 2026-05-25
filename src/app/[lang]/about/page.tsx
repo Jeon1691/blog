@@ -30,7 +30,10 @@ export default async function About({
         </ul>
 
         <h2>Summary</h2>
-        <p>Mobile(Android/iOS) 개발 + 시스템/앱 아키텍처 설계.</p>
+        <p>
+          Mobile(Android/iOS) 개발 + 시스템/앱 아키텍처 설계 + 블록체인 지갑
+          개발.
+        </p>
         <ul>
           <li>
             커뮤니케이션: <strong>Slack/문서 우선, 구두 최소화</strong>
@@ -45,6 +48,10 @@ export default async function About({
           <li>Android/iOS feature delivery</li>
           <li>Architecture: 모듈화, 경계/의존성 관리, 확장성/유지보수성</li>
           <li>Stability & Performance: Crash/ANR, Memory, Networking</li>
+          <li>
+            블록체인 지갑(Wallet) 설계·구현 — 키 관리, 서명 흐름, dApp 연동
+            (WalletConnect 등)
+          </li>
           <li>기술부채/레거시 개선</li>
         </ul>
 
@@ -109,6 +116,7 @@ export default async function About({
           <li>Mobile App</li>
           <li>System Architecture</li>
           <li>Performance & Stability</li>
+          <li>Blockchain Wallet (Key Management · Signing · dApp 연동)</li>
         </ul>
 
         <h2>Links</h2>
@@ -122,9 +130,6 @@ export default async function About({
             >
               @develicit
             </a>
-          </li>
-          <li>
-            <strong>Calendar / office hours</strong>: 미팅 요청
           </li>
         </ul>
       </>
@@ -146,7 +151,10 @@ export default async function About({
         </ul>
 
         <h2>Summary</h2>
-        <p>Mobile (Android/iOS) development + system/app architecture design.</p>
+        <p>
+          Mobile (Android/iOS) development + system/app architecture design +
+          blockchain wallet development.
+        </p>
         <ul>
           <li>
             Communication: <strong>Slack / docs first, voice minimized</strong>
@@ -164,6 +172,10 @@ export default async function About({
             scalability &amp; maintainability
           </li>
           <li>Stability &amp; Performance: Crash/ANR, Memory, Networking</li>
+          <li>
+            Blockchain wallet design &amp; implementation — key management,
+            signing flows, dApp integrations (WalletConnect, etc.)
+          </li>
           <li>Tech debt / legacy improvement</li>
         </ul>
 
@@ -231,6 +243,9 @@ export default async function About({
           <li>Mobile App</li>
           <li>System Architecture</li>
           <li>Performance &amp; Stability</li>
+          <li>
+            Blockchain Wallet (key management · signing · dApp integrations)
+          </li>
         </ul>
 
         <h2>Links</h2>
@@ -244,9 +259,6 @@ export default async function About({
             >
               @develicit
             </a>
-          </li>
-          <li>
-            <strong>Calendar / office hours</strong>: Request a meeting
           </li>
         </ul>
       </>
