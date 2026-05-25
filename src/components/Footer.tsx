@@ -7,9 +7,7 @@ export function Footer({ locale }: { locale: Locale }) {
   return (
     <footer className="border-t border-zinc-200 dark:border-zinc-800">
       <div className="mx-auto max-w-3xl px-6 py-8 flex flex-col sm:flex-row gap-4 sm:items-center justify-between text-sm text-muted-foreground">
-        <div>
-          © {new Date().getFullYear()} {site.author}
-        </div>
+        <div>© {new Date().getFullYear()} Develicit</div>
         <div className="flex gap-4">
           <Link
             href={`/${locale}/feed.xml`}
