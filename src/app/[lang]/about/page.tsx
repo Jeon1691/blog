@@ -114,6 +114,16 @@ export default async function About({
         <h2>Links</h2>
         <ul>
           <li>
+            <strong>Telegram</strong>:{" "}
+            <a
+              href="https://t.me/develicit"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              @develicit
+            </a>
+          </li>
+          <li>
             <strong>Calendar / office hours</strong>: 미팅 요청
           </li>
         </ul>
@@ -225,6 +235,16 @@ export default async function About({
 
         <h2>Links</h2>
         <ul>
+          <li>
+            <strong>Telegram</strong>:{" "}
+            <a
+              href="https://t.me/develicit"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              @develicit
+            </a>
+          </li>
           <li>
             <strong>Calendar / office hours</strong>: Request a meeting
           </li>
