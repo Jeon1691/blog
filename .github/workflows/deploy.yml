@@ -41,26 +41,21 @@ jobs:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Sync to S3
+      - name: Prune Next.js internal artifacts
+        run: |
+          find out -name '__next.*' -delete
+
+      - name: Sync immutable assets to S3 (_next/ is hashed)
+        run: |
+          aws s3 sync out/_next/ s3://${{ secrets.AWS_S3_BUCKET }}/_next/ \
+            --delete \
+            --cache-control "public, max-age=31536000, immutable"
+
+      - name: Sync remaining files with short cache
         run: |
           aws s3 sync out/ s3://${{ secrets.AWS_S3_BUCKET }}/ \
             --delete \
-            --exclude "*.txt" \
-            --exclude "__next.*" \
-            --exclude "*/__next.*" \
-            --cache-control "public, max-age=31536000, immutable" \
-            --exclude "*.html" \
-            --exclude "*.xml" \
-            --exclude "robots.txt" \
-            --exclude "feed.xml"
-
-          aws s3 sync out/ s3://${{ secrets.AWS_S3_BUCKET }}/ \
-            --delete \
-            --exclude "*" \
-            --include "*.html" \
-            --include "*.xml" \
-            --include "robots.txt" \
-            --include "feed.xml" \
+            --exclude "_next/*" \
             --cache-control "public, max-age=0, must-revalidate"
 
       - name: Invalidate CloudFront
