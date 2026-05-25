@@ -38,6 +38,10 @@ body {
 .prose :is(h1, h2, h3, h4, h5, h6) a:hover {
   color: var(--muted);
 }
+.prose blockquote p::before,
+.prose blockquote p::after {
+  content: none;
+}
 
 [data-rehype-pretty-code-figure] pre {
   padding: 1rem;
