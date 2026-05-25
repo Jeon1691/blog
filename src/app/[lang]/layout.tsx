@@ -1,13 +1,25 @@
 import "../globals.css";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { notFound } from "next/navigation";
 import { isLocale, locales, type Locale } from "@/lib/locales";
 import { site } from "@/lib/site";
+import { organizationSchema } from "@/lib/seo";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
+import { JsonLd } from "@/components/JsonLd";
 import { ThemeScript } from "@/components/ThemeScript";
 import { ThemeSync } from "@/components/ThemeSync";
 import { AdsenseScript } from "@/components/AdsenseScript";
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
+  ],
+};
 
 export const dynamicParams = false;
 
@@ -40,6 +52,14 @@ export async function generateMetadata({
         : ["blog", "Next.js", "AWS", "Terraform", "Korean fintech", "AI infra"],
     formatDetection: { telephone: false, email: false, address: false },
     robots: { index: true, follow: true, googleBot: { index: true, follow: true } },
+    verification: {
+      ...(site.verification.google ? { google: site.verification.google } : {}),
+      other: {
+        ...(site.verification.naver
+          ? { "naver-site-verification": site.verification.naver }
+          : {}),
+      },
+    },
     alternates: {
       canonical: `/${lang}/`,
       languages: {
@@ -86,6 +106,7 @@ export default async function LangRootLayout({
       </head>
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <ThemeSync />
+        <JsonLd data={organizationSchema(locale)} />
         <Header locale={locale} />
         <main className="flex-1 w-full">{children}</main>
         <Footer locale={locale} />

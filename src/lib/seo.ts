@@ -13,6 +13,23 @@ export function personSchema() {
   };
 }
 
+export function organizationSchema(locale: Locale) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "@id": `${site.url}/#organization`,
+    name: site.name,
+    alternateName: "Develicit",
+    url: site.url,
+    logo: {
+      "@type": "ImageObject",
+      url: `${site.url}/icon.svg`,
+    },
+    sameAs: [site.authorUrl],
+    inLanguage: langTag(locale),
+  };
+}
+
 export function websiteSchema(locale: Locale) {
   return {
     "@context": "https://schema.org",

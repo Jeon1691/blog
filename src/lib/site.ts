@@ -20,4 +20,10 @@ export const site = {
     clientId: "" as string,
     postBottomSlot: "" as string,
   },
+  // Webmaster console verification codes. Fill in after registering
+  // the site at each provider. Empty values are omitted from meta.
+  verification: {
+    google: "" as string, // Google Search Console — meta content value
+    naver: "" as string, // Naver Search Advisor — meta content value
+  },
 } as const;
