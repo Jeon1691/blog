@@ -5,7 +5,7 @@ type Locale = "ko" | "en";
 const STRINGS = {
   ko: {
     caption:
-      "Fig 3. 동일한 ‘128-bit 보안 등급'에 도달하기 위한 키 길이 — FFDH는 ECDH 키의 12배가 필요.",
+      "Fig 6. 동일한 ‘128-bit 보안 등급'에 도달하기 위한 키 길이 — FFDH는 ECDH 키의 12배가 필요.",
     note: "Index Calculus가 FFDH에는 적용되고 ECDLP에는 적용되지 않기 때문. 같은 안전 수준에서 더 작은 키 = 더 빠른 핸드셰이크, 더 적은 대역, 더 작은 인증서.",
     securityLevel: "보안 수준",
     rows: [
@@ -15,7 +15,7 @@ const STRINGS = {
   },
   en: {
     caption:
-      "Fig 3. Key length needed for the same 128-bit security level — FFDH needs 12× the bits ECDH does.",
+      "Fig 6. Key length needed for the same 128-bit security level — FFDH needs 12× the bits ECDH does.",
     note: "Because Index Calculus applies to FFDH but not to ECDLP. Same security with fewer bits means faster handshakes, less bandwidth, smaller certificates.",
     securityLevel: "Security level",
     rows: [

@@ -5,9 +5,13 @@ date: 2026-05-26
 tags: [cryptography, Diffie-Hellman, security, ECDH]
 ---
 
+import { DHKeyExchange } from "@/components/diagrams/DHKeyExchange";
 import { DLPComplexity } from "@/components/diagrams/DLPComplexity";
+import { IndexCalculusFlow } from "@/components/diagrams/IndexCalculusFlow";
 import { DLPBreakRecords } from "@/components/diagrams/DLPBreakRecords";
+import { LogjamAmortization } from "@/components/diagrams/LogjamAmortization";
 import { KeySizeEquivalence } from "@/components/diagrams/KeySizeEquivalence";
+import { ECCSafetyMatrix } from "@/components/diagrams/ECCSafetyMatrix";
 
 > **Index Calculus** is the most powerful sub-exponential algorithm we have for the **Discrete Logarithm Problem (DLP)** in finite fields $\mathbb{F}_p^*$. It directly bounds the security of classical Diffie-Hellman and is the reason today's recommended DH modulus sizes start at ≥ 2048 bits.
 
@@ -20,6 +24,8 @@ Classical Diffie-Hellman key exchange uses a large prime $p$ and a generator $g 
 - Shared key: $K = g^{ab} \bmod p$
 
 The attacker sees $g, p, A, B$ and wants $K$. The natural attack is to recover the **discrete logarithm** $a = \log_g A$ — the **DLP**.
+
+<DHKeyExchange locale="en" />
 
 > DH's security ≤ the hardness of the DLP. Solve the DLP quickly and DH falls instantly.
 
@@ -42,6 +48,8 @@ The key distinction: **Index Calculus exploits extra structure in $\mathbb{F}_p^
 ## 3. The Index Calculus algorithm — a four-stage shape
 
 Goal: given $g, h \in \mathbb{F}_p^*$, find $x$ such that $h \equiv g^x \pmod{p}$.
+
+<IndexCalculusFlow locale="en" />
 
 ### Step 1. Pick a factor base
 
@@ -136,6 +144,8 @@ NFS-DLP is the state of the art for prime-field DLP — the same complexity clas
 - 512-bit DH: ~1 week of academic-scale compute → individual log per session in < 90 seconds.
 - 1024-bit DH (a widely-shared prime): plausible at NSA scale — matches the "large-scale VPN/SSH decryption" descriptions in the Snowden documents.
 
+<LogjamAmortization locale="en" />
+
 > Takeaway: **don't share primes**, **use 2048-bit or larger**, **prefer ECDHE**.
 
 ## 8. Defense checklist
@@ -175,6 +185,8 @@ A few curve families *are* still vulnerable and must be avoided:
 | Shared secret | $K = d_A d_B G$ | **Secret** | ✅ Changes each session |
 
 The curve and $G$ are a **public playground that everyone shares**; per-session secrecy lives in the **scalar $d$**. Even if an attacker watches hundreds of thousands of sessions on the same curve, what they see each time is an independent random $d_{A_i}, d_{B_i}$. Recovering $d_{A_i}$ from $A_i = d_{A_i} G$ still means solving **ECDLP** ($O(\sqrt{n})$ Pollard's rho — $2^{128}$ at 256 bits).
+
+<ECCSafetyMatrix locale="en" />
 
 > **Watching many sessions doesn't make ECDLP any easier.** Each instance is mathematically independent, so accumulated observations give the attacker no advantage. This is the decisive difference from Index Calculus — IC's factor-base precomputation against a single $p$ amortizes over every session using that $p$. ECC has no such structure to amortize against.
 

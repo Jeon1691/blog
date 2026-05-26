@@ -8,7 +8,7 @@ const SECURITY_THRESHOLD = 128;
 const STRINGS = {
   ko: {
     caption:
-      "Fig 1. 2048-bit FFDH에 대한 각 알고리즘의 비용 — log₂(연산 수) 기준. 128-bit 위가 \"안전\"한 영역.",
+      "Fig 2. 2048-bit FFDH에 대한 각 알고리즘의 비용 — log₂(연산 수) 기준. 128-bit 위가 \"안전\"한 영역.",
     threshold: "안전 임계 (128-bit)",
     note: "Brute-force / Pollard's rho는 스케일을 한참 벗어남. Index Calculus 계열만이 실용적 위협이고, 그중 NFS-DLP가 2048-bit를 ‘NIST 112-128bit 보안 등급'에 묶는다.",
     rows: [
@@ -20,7 +20,7 @@ const STRINGS = {
   },
   en: {
     caption:
-      "Fig 1. Per-algorithm cost against 2048-bit FFDH — log₂(operations). Anything above the 128-bit line counts as ‘secure today'.",
+      "Fig 2. Per-algorithm cost against 2048-bit FFDH — log₂(operations). Anything above the 128-bit line counts as ‘secure today'.",
     threshold: "Secure threshold (128-bit)",
     note: "Brute-force and Pollard's rho are off-scale; only the Index Calculus family is a practical threat. NFS-DLP is what pins 2048-bit FFDH at the NIST 112–128-bit security level.",
     rows: [

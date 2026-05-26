@@ -5,7 +5,7 @@ type Locale = "ko" | "en";
 const STRINGS = {
   ko: {
     caption:
-      "Fig 2. NFS-DLP로 깨진 prime-field DH 비트 수 — 2014~2019, 단조 증가 추세.",
+      "Fig 4. NFS-DLP로 깨진 prime-field DH 비트 수 — 2014~2019, 단조 증가 추세.",
     note: "1024-bit (널리 공유된 prime 포함)이 2017년에 학술 자원으로 깨졌다. 그래서 NIST/IETF는 2048-bit를 최소선으로 본다.",
     safeline: "권장 임계 (현재)",
     records: [
@@ -17,7 +17,7 @@ const STRINGS = {
   },
   en: {
     caption:
-      "Fig 2. Prime-field DH bits broken by NFS-DLP — 2014 through 2019, monotonically climbing.",
+      "Fig 4. Prime-field DH bits broken by NFS-DLP — 2014 through 2019, monotonically climbing.",
     note: "1024-bit (including widely-shared primes) fell to academic compute in 2017. That's why NIST/IETF now treat 2048-bit as the floor.",
     safeline: "Recommended floor (today)",
     records: [
