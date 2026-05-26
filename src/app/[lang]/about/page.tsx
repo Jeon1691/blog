@@ -32,7 +32,7 @@ export default async function About({
         <h2>Summary</h2>
         <p>
           Mobile(Android/iOS) 개발 + 시스템/앱 아키텍처 설계 + 블록체인 지갑
-          개발.
+          개발 + 암호학·보안 연구.
         </p>
         <ul>
           <li>
@@ -53,6 +53,21 @@ export default async function About({
             (WalletConnect 등)
           </li>
           <li>기술부채/레거시 개선</li>
+        </ul>
+
+        <h2>Research interests</h2>
+        <ul>
+          <li>
+            <strong>암호학</strong> — DLP/ECDLP, Index Calculus / NFS, 곡선
+            안전성, PQC
+          </li>
+          <li>
+            <strong>응용 보안</strong> — TLS/PKI, 키 관리, RNG·nonce, side-channel
+          </li>
+          <li>
+            <strong>지갑·서명 시스템</strong> — HD wallet, MPC/threshold,
+            WalletConnect 모델
+          </li>
         </ul>
 
         <h2>Working with me</h2>
@@ -117,6 +132,7 @@ export default async function About({
           <li>System Architecture</li>
           <li>Performance & Stability</li>
           <li>Blockchain Wallet (Key Management · Signing · dApp 연동)</li>
+          <li>암호학·보안 검토 (Crypto primitives · TLS/PKI · 키 관리 설계)</li>
         </ul>
 
         <h2>Links</h2>
@@ -153,7 +169,7 @@ export default async function About({
         <h2>Summary</h2>
         <p>
           Mobile (Android/iOS) development + system/app architecture design +
-          blockchain wallet development.
+          blockchain wallet development + cryptography &amp; security research.
         </p>
         <ul>
           <li>
@@ -177,6 +193,22 @@ export default async function About({
             signing flows, dApp integrations (WalletConnect, etc.)
           </li>
           <li>Tech debt / legacy improvement</li>
+        </ul>
+
+        <h2>Research interests</h2>
+        <ul>
+          <li>
+            <strong>Cryptography</strong> — DLP/ECDLP, Index Calculus / NFS,
+            curve safety, post-quantum
+          </li>
+          <li>
+            <strong>Applied security</strong> — TLS/PKI, key management, RNG /
+            nonce hygiene, side-channels
+          </li>
+          <li>
+            <strong>Wallet &amp; signing systems</strong> — HD wallets,
+            MPC/threshold, the WalletConnect model
+          </li>
         </ul>
 
         <h2>Working with me</h2>
@@ -245,6 +277,10 @@ export default async function About({
           <li>Performance &amp; Stability</li>
           <li>
             Blockchain Wallet (key management · signing · dApp integrations)
+          </li>
+          <li>
+            Cryptography &amp; Security review (crypto primitives · TLS/PKI ·
+            key-management design)
           </li>
         </ul>
 
