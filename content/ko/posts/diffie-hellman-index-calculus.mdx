@@ -1,0 +1,222 @@
+---
+title: Diffie-Hellman과 인덱스 미적분(Index Calculus) 공격
+description: 유한체 $\mathbb{F}_p^*$ 위의 DLP를 sub-exponential 시간에 푸는 Index Calculus가 어떻게 고전 DH의 키 길이 권고와 Logjam 공격까지 이어지는가.
+date: 2026-05-25
+tags: [암호학, Diffie-Hellman, 보안, ECDH]
+---
+
+> **Index Calculus**는 유한체 $\mathbb{F}_p^*$ 위에서 정의된 **이산로그 문제(DLP)** 를 풀기 위한 가장 강력한 sub-exponential 알고리즘이다. 고전 Diffie-Hellman(DH)의 안전성을 직접적으로 무너뜨리는 핵심 공격으로, 오늘날 권장되는 DH 모듈러스 크기(≥ 2048-bit)의 근거가 된다.
+
+## 1. 배경 — Diffie-Hellman과 DLP
+
+고전 Diffie-Hellman 키 교환은 큰 소수 $p$와 생성원 $g \in \mathbb{F}_p^*$에 대해 다음 가정을 기반으로 한다.
+
+- Alice: 비밀 $a$, 공개 $A = g^a \bmod p$
+- Bob: 비밀 $b$, 공개 $B = g^b \bmod p$
+- 공유키: $K = g^{ab} \bmod p$
+
+공격자는 $g, p, A, B$를 보고 $K$를 구하려 한다. 이를 위해 보통 **이산로그** $a = \log_g A$를 구해야 한다 — 이것이 **DLP (Discrete Logarithm Problem)**.
+
+> DH의 안전성 ≤ DLP의 어려움. DLP가 빠르게 풀리면 DH도 즉시 무너진다.
+
+## 2. 왜 Brute-force / BSGS만으로는 부족한가
+
+| 알고리즘 | 시간 복잡도 | 메모리 | 비고 |
+| --- | --- | --- | --- |
+| Brute-force | $O(p)$ | $O(1)$ | 비현실적 |
+| Baby-step Giant-step | $O(\sqrt{p})$ | $O(\sqrt{p})$ | 일반 군에 통함 |
+| Pollard's rho | $O(\sqrt{p})$ | $O(1)$ | 일반 군에 통함 |
+| Pohlig–Hellman | $O(\sqrt{q})$ ($q$: 최대 소인수) | — | 군 위수의 인수분해 의존 |
+| **Index Calculus** | $L_p[1/2, c]$ 또는 $L_p[1/3, c]$ (NFS-DLP) | 큰 메모리 | $\mathbb{F}_p^*$ **등 특정 군에서만 작동** |
+
+여기서 $L_p[\alpha, c] = \exp\!\left(c (\ln p)^{\alpha} (\ln \ln p)^{1-\alpha}\right)$는 sub-exponential 함수.
+
+핵심 차이: **Index Calculus는 $\mathbb{F}_p^*$의 추가 구조(정수의 인수분해)를 이용**한다. 따라서 동일한 비트수의 타원곡선(ECDLP)에는 적용되지 않으며, 이것이 ECDH가 동일 보안 수준에서 훨씬 작은 키를 쓰는 이유다.
+
+## 3. Index Calculus 알고리즘 — 3단계 구조
+
+목표: $g, h \in \mathbb{F}_p^*$가 주어졌을 때 $x$를 구한다, 단 $h \equiv g^x \pmod{p}$.
+
+### Step 1. Factor base 선택
+
+작은 소수들의 집합 $B = \{p_1, p_2, \dots, p_k\}$을 고른다 (e.g. $p_i \le B$, smoothness bound).
+
+### Step 2. Relation collection (관계식 수집)
+
+임의의 지수 $e$에 대해 $g^{e} \bmod p$를 계산하고, 그 결과가 **B-smooth**(즉, $B$ 이하의 소수들만으로 인수분해되는가)인지 확인한다.
+
+smooth하면 다음과 같은 관계식이 얻어진다:
+
+$$
+g^{e} \equiv \prod_{i=1}^{k} p_i^{a_i} \pmod{p}
+$$
+
+양변에 $\log_g$를 취하면:
+
+$$
+e \equiv \sum_{i=1}^{k} a_i \cdot \log_g p_i \pmod{p-1}
+$$
+
+이런 식 $k+$ 개 이상을 모으면, **미지수 $\log_g p_i$에 대한 선형 연립방정식**이 된다.
+
+### Step 3. Linear algebra — factor base의 로그 계산
+
+위 연립방정식을 $\bmod (p-1)$에서 풀어 $\log_g p_1, \dots, \log_g p_k$를 얻는다. 보통 Lanczos / Wiedemann 같은 sparse linear algebra 알고리즘 사용.
+
+### Step 4. Individual logarithm — 목표 $h$의 로그 구하기
+
+임의의 $s$에 대해 $h \cdot g^{s} \bmod p$가 B-smooth가 될 때까지 시도. 성공 시:
+
+$$
+h \cdot g^{s} \equiv \prod p_i^{b_i} \pmod{p}
+\;\Longrightarrow\;
+\log_g h \equiv \sum b_i \log_g p_i - s \pmod{p-1}
+$$
+
+이미 Step 3에서 $\log_g p_i$를 알고 있으므로 $\log_g h$가 곧장 계산된다.
+
+## 4. 토이 예제 — $p = 1019$
+
+$g = 2$, $h = 5$일 때 $x$를 구한다고 하자 ($2^x \equiv 5 \pmod{1019}$).
+
+Factor base: $B = \{2, 3, 5, 7\}$.
+
+smooth한 $g^e \bmod p$를 모은다:
+
+- $2^{10} = 1024 \equiv 5 \pmod{1019}$ → $10 \equiv \log_2 5$
+
+운이 좋아 한 번에 풀렸지만, 일반적으로는 수십~수백 개 관계식을 모아 선형대수로 일괄 해결한다.
+
+## 5. 복잡도 분석 — 왜 sub-exponential인가
+
+핵심은 **smoothness 확률**이다. Canfield–Erdős–Pomerance 정리에 의해, $x$ 이하의 임의 수가 $y$-smooth일 확률은 대략:
+
+$$
+\rho(u) \approx u^{-u}, \quad u = \frac{\log x}{\log y}
+$$
+
+Factor base 크기 $B$와 관계식 수집 비용의 트레이드오프를 최적화하면:
+
+- 단순 Index Calculus: $L_p[1/2, \sqrt{2}]$
+- **Number Field Sieve for DLP (NFS-DLP)**: $L_p[1/3, (64/9)^{1/3}]$
+
+NFS-DLP는 현재 prime-field DLP의 최첨단으로, RSA 정수분해와 같은 복잡도 클래스다.
+
+## 6. 실제 기록 — 몇 비트까지 깨졌나
+
+| 연도 | 비트 수 | 기법 | 비고 |
+| --- | --- | --- | --- |
+| 2014 | 596-bit | NFS-DLP | Bouvier et al. |
+| 2016 | 768-bit | NFS-DLP | Kleinjung et al. |
+| 2017 | 1024-bit (special prime) | SNFS-DLP | Fried, Gaudry, Heninger, Thomé (Logjam 후속) |
+| 2019+ | 795-bit (safe prime) | NFS-DLP | Boudot et al. |
+
+→ **1024-bit DH는 국가급 자원으로 깰 수 있는 수준**. NIST/IETF가 2048-bit 이상을 요구하는 직접적 근거.
+
+## 7. Logjam 공격 (2015) — Index Calculus의 실전 응용
+
+[Logjam](https://weakdh.org)은 Index Calculus의 가장 유명한 실전 사례다.
+
+### 핵심 아이디어
+
+1. **TLS의 DHE_EXPORT**가 512-bit 모듈러스를 강제 — downgrade 가능.
+2. 인터넷 전반에서 **공유되는 prime $p$**가 소수 — Apache, mod_ssl 기본값 등.
+3. **Precomputation**: NFS-DLP의 Step 1~3 (factor base + linear algebra)는 $p$에만 의존. 한 번 해두면 같은 $p$를 쓰는 모든 세션을 Step 4 (individual log)만으로 거의 실시간에 깰 수 있다.
+
+### 결과
+
+- 512-bit DH: 학술 자원으로 약 1주 → 세션 당 90초 내 individual log.
+- 1024-bit DH (널리 공유된 prime): NSA급 자원이면 충분히 가능 — Snowden 문서 속 "large-scale VPN/SSH decryption" 정황과 일치.
+
+> 교훈: **prime을 공유하지 말 것**, **2048-bit 이상 사용**, **ECDHE 우선**.
+
+## 8. 방어 가이드라인
+
+- ✅ **유한체 DH를 쓴다면 $p \ge 2048$-bit, 가능하면 3072-bit 이상.**
+- ✅ **Safe prime ($p = 2q+1$, $q$ 소수)** 사용. Pohlig–Hellman 회피.
+- ✅ RFC 7919 (FFDHE)의 표준화된 그룹 사용 — 정밀 검증된 prime.
+- ✅ **ECDHE 우선 채택** — Index Calculus가 적용되지 않음. 256-bit 곡선이 3072-bit FFDH와 동급 보안.
+- ✅ TLS에서 export 암호군 비활성화 (Logjam 방어).
+- ⚠️ **공유 prime 주의** — 한 prime 깨지면 같은 prime을 쓰는 모든 시스템이 영향.
+- 🔮 장기적으로는 **PQC (Post-Quantum Cryptography)** 로의 전환 — Shor 알고리즘이 모든 DLP를 다항 시간에 풂.
+
+## 9. ECDH는 왜 안전한가
+
+타원곡선군 $E(\mathbb{F}_p)$에는 "인수분해" 개념이 없다 — 작은 "소수 점" factor base를 만들 수 없다.
+
+따라서 Index Calculus가 작동하지 않고, 가장 빠른 알고리즘은 일반군용 Pollard's rho ($O(\sqrt{n})$). 이것이 ECDH의 키 길이가 짧아도 되는 수학적 이유.
+
+단, 다음 곡선들은 **취약**하므로 피해야 한다:
+
+- **Supersingular curves** → MOV/Frey–Rück 공격으로 ECDLP를 작은 차수 확장체의 DLP로 환원 → Index Calculus 적용 가능.
+- **Anomalous curves** ($\#E(\mathbb{F}_p) = p$) → Smart 공격으로 다항 시간.
+
+## 10. 고정 상수와 난수 — 흔한 오해와 실전 사고
+
+> "ECDH는 곡선·베이스 포인트 $G$ 같은 상수가 고정되어 있는데, 반복 관찰하면 예측 가능하지 않나?" — 자연스러운 직관이지만, **고정된 건 공개 운동장이고 매 세션의 비밀은 따로 있다**. 실제 사고는 곡선 상수가 아니라 **난수가 고정·편향**될 때 터진다.
+
+### 10.1 ECDH에서 "고정"인 것 vs "매번 바뀌는" 것
+
+| 구분 | 항목 | 공개/비밀 | 매 세션 변화? |
+| --- | --- | --- | --- |
+| 도메인 파라미터 | 곡선 $E$, 소수 $p$, 베이스 포인트 $G$, 위수 $n$ | 공개 | ❌ 고정 (예: secp256k1, Curve25519, NIST P-256) |
+| 개인키 | 스칼라 $d \in [1, n-1]$ | **비밀** | ✅ 매번 새 난수 (ECDHE) |
+| 공개키 | $Q = dG$ | 공개 | ✅ 매번 달라짐 |
+| 공유 비밀 | $K = d_A d_B G$ | **비밀** | ✅ 매번 달라짐 |
+
+곡선·$G$는 **모두에게 공개된 운동장**이고, 매 세션의 비밀은 **개인키 스칼라 $d$**다. 공격자가 같은 곡선을 쓰는 수십만 세션을 관찰해도 매번 보는 건 독립된 난수로 뽑힌 $d_{A_i}, d_{B_i}$들이고, $A_i = d_{A_i} G$로부터 $d_{A_i}$를 복구하려면 결국 **ECDLP**를 풀어야 한다 ($O(\sqrt{n})$ Pollard's rho, 256-bit면 $2^{128}$).
+
+> **여러 세션의 관찰이 ECDLP를 더 쉽게 만들지 않는다.** 각 인스턴스가 수학적으로 독립이라 누적 정보의 이득이 없다. 이것이 Index Calculus와의 결정적 차이 — IC는 같은 prime $p$에서의 factor base 사전계산이 모든 세션에 재사용되지만, ECC에는 그런 구조 자체가 없다.
+
+### 10.2 진짜로 위험한 "고정" — 실전 사고 사례
+
+질문의 직관은 사실 **실전 공격이 실제로 일어난 지점**을 잘 짚었다. 다만 깨지는 건 곡선 상수가 아니라 **난수(개인키 또는 임시값) 쪽**이다.
+
+#### Case 1. PS3 ECDSA 해킹 (2010, fail0verflow)
+
+Sony가 ECDSA 서명에서 매번 **같은 nonce $k$**를 사용. 두 서명만 있으면 개인키가 대수적으로 복구됨:
+
+$$
+s_1 = k^{-1}(z_1 + r d), \quad s_2 = k^{-1}(z_2 + r d)
+\;\Longrightarrow\;
+k = \frac{z_1 - z_2}{s_1 - s_2}, \quad d = \frac{s_1 k - z_1}{r}
+$$
+
+ECDH로 비유하면 "양쪽이 매 세션 같은 개인키를 재사용한 경우"와 동치.
+
+#### Case 2. Android Bitcoin 지갑 사태 (2013)
+
+`SecureRandom` 버그로 ECDSA nonce가 **예측 가능한 값**이 되어 다수의 비트코인 지갑 개인키가 털림. 곡선(secp256k1)은 멀쩡했고, 문제는 OS의 RNG였다.
+
+#### Case 3. Static ECDH의 Invalid Curve Attack
+
+양쪽이 **개인키를 고정해서 재사용**하면 공격자가 곡선 위에 없는 "이상한 점"을 보내 작은 부분군으로 끌어내려 비밀 비트를 CRT로 한 비트씩 뽑아낸다. 이래서 실무에서는 **ECDHE (Ephemeral)** 가 강제되고, X25519처럼 표준이 입력 검증을 강제한다.
+
+#### Case 4. Dual_EC_DRBG 백도어 의혹 (2007/2013)
+
+**난수 생성기 자체의 상수 점** $P, Q$가 백도어를 품고 있어서 ($Q = eP$의 $e$를 아는 자만이) 출력으로부터 내부 상태 복구 가능 — NSA 개입설. "특정 상수가 고정"이라는 점이 **실제로** 문제였던 드문 사례. 그래서 표준 곡선들도 "nothing-up-my-sleeve" 검증이 중요하다 (Curve25519, Brainpool 등이 강조하는 이유).
+
+### 10.3 결론 — 어디를 보호해야 하는가
+
+- ✅ **공개 도메인 파라미터(곡선·$G$)가 고정인 건 문제 없음** — 모두 공개라는 전제 아래 설계됐고 ECDLP가 보호한다.
+- ❌ **개인키 / 임시 난수가 고정되거나 편향되면 즉사** — 거의 모든 실전 ECC 사고가 여기서 발생.
+- 실무 권고:
+  - ✅ **ECDHE** (매 세션 새 임시키)
+  - ✅ 검증된 CSPRNG (`/dev/urandom`, `getrandom(2)`, OS API)
+  - ✅ **결정적 nonce** (RFC 6979) 또는 EdDSA처럼 nonce를 `Hash(key ‖ message)`로 유도 — RNG 실패에도 강건
+  - ✅ 검증된 표준 곡선 (Curve25519, Ed25519, NIST P-256, secp256k1) — 곡선 상수에 백도어 없음이 공개 검증됨
+  - ⚠️ **자체 곡선 만들기 금지** — Dual_EC_DRBG 교훈
+
+## 11. 정리 — 한 줄 요약
+
+> **Index Calculus는 $\mathbb{F}_p^*$의 정수론적 구조(smoothness)를 이용해 DLP를 sub-exponential 시간에 푸는 알고리즘이며, 이로 인해 고전 DH는 ECDH보다 훨씬 큰 키를 요구하고, 실전 공격(Logjam)으로 이어졌다. ECDH의 "고정 상수"는 공개 운동장일 뿐, 실전 사고는 거의 항상 난수 쪽에서 터진다.**
+
+---
+
+### 참고 자료
+
+- Adleman, L. (1979). *A subexponential algorithm for the discrete logarithm problem with applications to cryptography.*
+- Pomerance, C. (1987). *Fast, rigorous factorization and discrete logarithm algorithms.*
+- Adrian, D. et al. (2015). [*Imperfect Forward Secrecy: How Diffie-Hellman Fails in Practice*](https://weakdh.org/imperfect-forward-secrecy-ccs15.pdf) (Logjam paper).
+- Boudot, F. et al. (2020). *Comparing the difficulty of factorization and discrete logarithm: a 240-digit experiment.*
+- RFC 7919 — Negotiated Finite Field Diffie-Hellman Ephemeral Parameters for TLS.
