@@ -1,0 +1,222 @@
+---
+title: Diffie-Hellman and the Index Calculus Attack
+description: How a sub-exponential attack on the DLP in $\mathbb{F}_p^*$ shapes today's DH key-size recommendations — and ended up powering Logjam.
+date: 2026-05-25
+tags: [cryptography, Diffie-Hellman, security, ECDH]
+---
+
+> **Index Calculus** is the most powerful sub-exponential algorithm we have for the **Discrete Logarithm Problem (DLP)** in finite fields $\mathbb{F}_p^*$. It directly bounds the security of classical Diffie-Hellman and is the reason today's recommended DH modulus sizes start at ≥ 2048 bits.
+
+## 1. Background — Diffie-Hellman and the DLP
+
+Classical Diffie-Hellman key exchange uses a large prime $p$ and a generator $g \in \mathbb{F}_p^*$:
+
+- Alice: secret $a$, public $A = g^a \bmod p$
+- Bob: secret $b$, public $B = g^b \bmod p$
+- Shared key: $K = g^{ab} \bmod p$
+
+The attacker sees $g, p, A, B$ and wants $K$. The natural attack is to recover the **discrete logarithm** $a = \log_g A$ — the **DLP**.
+
+> DH's security ≤ the hardness of the DLP. Solve the DLP quickly and DH falls instantly.
+
+## 2. Why brute-force / BSGS aren't enough
+
+| Algorithm | Time | Memory | Notes |
+| --- | --- | --- | --- |
+| Brute-force | $O(p)$ | $O(1)$ | Infeasible |
+| Baby-step Giant-step | $O(\sqrt{p})$ | $O(\sqrt{p})$ | Works in any group |
+| Pollard's rho | $O(\sqrt{p})$ | $O(1)$ | Works in any group |
+| Pohlig–Hellman | $O(\sqrt{q})$ ($q$: largest prime factor) | — | Depends on factoring the group order |
+| **Index Calculus** | $L_p[1/2, c]$ or $L_p[1/3, c]$ (NFS-DLP) | Large | **Only specific groups, like** $\mathbb{F}_p^*$ |
+
+Here $L_p[\alpha, c] = \exp\!\left(c (\ln p)^{\alpha} (\ln \ln p)^{1-\alpha}\right)$ is the sub-exponential function.
+
+The key distinction: **Index Calculus exploits extra structure in $\mathbb{F}_p^*$ — the integer factorization of group elements**. It does *not* apply to elliptic curves (ECDLP), which is why ECDH gets equivalent security at much smaller key sizes.
+
+## 3. The Index Calculus algorithm — a four-stage shape
+
+Goal: given $g, h \in \mathbb{F}_p^*$, find $x$ such that $h \equiv g^x \pmod{p}$.
+
+### Step 1. Pick a factor base
+
+A set of small primes $B = \{p_1, p_2, \dots, p_k\}$ (e.g. all $p_i \le B$, the smoothness bound).
+
+### Step 2. Collect relations
+
+For random exponents $e$, compute $g^{e} \bmod p$ and test whether the result is **B-smooth** (factors entirely over primes ≤ $B$).
+
+A smooth hit gives:
+
+$$
+g^{e} \equiv \prod_{i=1}^{k} p_i^{a_i} \pmod{p}
+$$
+
+Taking $\log_g$ on both sides:
+
+$$
+e \equiv \sum_{i=1}^{k} a_i \cdot \log_g p_i \pmod{p-1}
+$$
+
+Once you have $k+$ such relations, you have a **linear system in the unknowns $\log_g p_i$**.
+
+### Step 3. Linear algebra — logarithms of the factor base
+
+Solve the system $\bmod (p-1)$ to recover $\log_g p_1, \dots, \log_g p_k$. In practice this uses sparse-linear-algebra algorithms like Lanczos or Wiedemann.
+
+### Step 4. Individual logarithm for the target $h$
+
+Try random $s$ until $h \cdot g^{s} \bmod p$ is B-smooth. Then:
+
+$$
+h \cdot g^{s} \equiv \prod p_i^{b_i} \pmod{p}
+\;\Longrightarrow\;
+\log_g h \equiv \sum b_i \log_g p_i - s \pmod{p-1}
+$$
+
+We already know each $\log_g p_i$ from Step 3, so $\log_g h$ falls out immediately.
+
+## 4. A toy example — $p = 1019$
+
+Take $g = 2$, $h = 5$ and look for $x$ with $2^x \equiv 5 \pmod{1019}$.
+
+Factor base: $B = \{2, 3, 5, 7\}$.
+
+Collect smooth $g^e \bmod p$ values:
+
+- $2^{10} = 1024 \equiv 5 \pmod{1019}$ → $10 \equiv \log_2 5$
+
+A lucky one-shot — but in general you'd gather dozens-to-hundreds of relations and solve them as a batch with linear algebra.
+
+## 5. Complexity — why sub-exponential
+
+The decisive factor is **smoothness probability**. By the Canfield–Erdős–Pomerance theorem, a random number ≤ $x$ is $y$-smooth with probability roughly:
+
+$$
+\rho(u) \approx u^{-u}, \quad u = \frac{\log x}{\log y}
+$$
+
+Trading off factor-base size $B$ against the cost of relation collection optimizes to:
+
+- Plain Index Calculus: $L_p[1/2, \sqrt{2}]$
+- **Number Field Sieve for DLP (NFS-DLP)**: $L_p[1/3, (64/9)^{1/3}]$
+
+NFS-DLP is the state of the art for prime-field DLP — the same complexity class as RSA integer factorization.
+
+## 6. Public records — how many bits have fallen
+
+| Year | Bits | Technique | Notes |
+| --- | --- | --- | --- |
+| 2014 | 596-bit | NFS-DLP | Bouvier et al. |
+| 2016 | 768-bit | NFS-DLP | Kleinjung et al. |
+| 2017 | 1024-bit (special prime) | SNFS-DLP | Fried, Gaudry, Heninger, Thomé (Logjam follow-up) |
+| 2019+ | 795-bit (safe prime) | NFS-DLP | Boudot et al. |
+
+→ **1024-bit DH is within reach of nation-state resources** — the direct rationale for NIST/IETF requiring 2048-bit and above.
+
+## 7. Logjam (2015) — Index Calculus in the wild
+
+[Logjam](https://weakdh.org) is the most famous real-world deployment of Index Calculus.
+
+### The core idea
+
+1. **TLS DHE_EXPORT** forced a 512-bit modulus — downgradable.
+2. **A handful of primes were shared across the internet** — Apache, mod_ssl defaults, etc.
+3. **Precomputation**: NFS-DLP Steps 1–3 (factor base + linear algebra) depend only on $p$. Do them once, then any session using the same $p$ can be broken in near-real-time via Step 4 (individual log).
+
+### Results
+
+- 512-bit DH: ~1 week of academic-scale compute → individual log per session in < 90 seconds.
+- 1024-bit DH (a widely-shared prime): plausible at NSA scale — matches the "large-scale VPN/SSH decryption" descriptions in the Snowden documents.
+
+> Takeaway: **don't share primes**, **use 2048-bit or larger**, **prefer ECDHE**.
+
+## 8. Defense checklist
+
+- ✅ **If you must use finite-field DH, $p \ge 2048$-bit; prefer 3072-bit or larger.**
+- ✅ Use a **safe prime** ($p = 2q+1$ with $q$ prime) — kills Pohlig–Hellman.
+- ✅ Use the standardized groups in **RFC 7919 (FFDHE)** — primes vetted by the community.
+- ✅ **Prefer ECDHE** — Index Calculus doesn't apply. A 256-bit curve matches the security of 3072-bit FFDH.
+- ✅ Disable TLS export cipher suites (Logjam mitigation).
+- ⚠️ **Beware of shared primes** — one broken prime affects every system using it.
+- 🔮 Long-term: migrate to **post-quantum cryptography (PQC)** — Shor's algorithm solves all DLPs in polynomial time on a fault-tolerant quantum computer.
+
+## 9. Why ECDH is safe
+
+The elliptic-curve group $E(\mathbb{F}_p)$ has no notion of "factorization" — you can't build a factor base of small "prime points."
+
+Index Calculus therefore doesn't apply, and the best generic attack is Pollard's rho at $O(\sqrt{n})$. That's the mathematical reason ECDH can use much shorter keys.
+
+A few curve families *are* still vulnerable and must be avoided:
+
+- **Supersingular curves** → MOV/Frey–Rück reduces ECDLP to a DLP in a small-degree extension field → Index Calculus *does* apply.
+- **Anomalous curves** ($\#E(\mathbb{F}_p) = p$) → broken by Smart's attack in polynomial time.
+
+## 10. Fixed constants and randomness — common confusion, real-world incidents
+
+> "ECDH has fixed constants like the curve and base point $G$ — if I watch enough sessions, can't I predict things?" A natural intuition, but **the fixed parts are a public playground; each session's secret lives elsewhere**. The disasters in practice come not from fixed curve constants but from **fixed or biased randomness**.
+
+### 10.1 What's "fixed" vs "fresh per session" in ECDH
+
+| Layer | Item | Public/secret | Changes per session? |
+| --- | --- | --- | --- |
+| Domain parameters | Curve $E$, prime $p$, base point $G$, order $n$ | Public | ❌ Fixed (e.g. secp256k1, Curve25519, NIST P-256) |
+| Private key | Scalar $d \in [1, n-1]$ | **Secret** | ✅ Fresh randomness each session (ECDHE) |
+| Public key | $Q = dG$ | Public | ✅ Changes each session |
+| Shared secret | $K = d_A d_B G$ | **Secret** | ✅ Changes each session |
+
+The curve and $G$ are a **public playground that everyone shares**; per-session secrecy lives in the **scalar $d$**. Even if an attacker watches hundreds of thousands of sessions on the same curve, what they see each time is an independent random $d_{A_i}, d_{B_i}$. Recovering $d_{A_i}$ from $A_i = d_{A_i} G$ still means solving **ECDLP** ($O(\sqrt{n})$ Pollard's rho — $2^{128}$ at 256 bits).
+
+> **Watching many sessions doesn't make ECDLP any easier.** Each instance is mathematically independent, so accumulated observations give the attacker no advantage. This is the decisive difference from Index Calculus — IC's factor-base precomputation against a single $p$ amortizes over every session using that $p$. ECC has no such structure to amortize against.
+
+### 10.2 The "fixed" parts that *do* break things
+
+The original intuition is actually pointing at **where real-world ECC failures happen** — they just hit the *randomness* layer, not the curve constants.
+
+#### Case 1. PS3 ECDSA hack (2010, fail0verflow)
+
+Sony reused the same nonce $k$ in every ECDSA signature. Two signatures suffice to recover the private key algebraically:
+
+$$
+s_1 = k^{-1}(z_1 + r d), \quad s_2 = k^{-1}(z_2 + r d)
+\;\Longrightarrow\;
+k = \frac{z_1 - z_2}{s_1 - s_2}, \quad d = \frac{s_1 k - z_1}{r}
+$$
+
+The ECDH analogue would be "both sides reuse the same private key every session."
+
+#### Case 2. Android Bitcoin wallet incident (2013)
+
+A `SecureRandom` bug made ECDSA nonces **predictable**, draining a number of Bitcoin wallets. The curve (secp256k1) was fine; the OS RNG wasn't.
+
+#### Case 3. Static ECDH and Invalid Curve attacks
+
+If both parties **reuse static private keys**, an attacker sends "off-curve" points to push the secret into a small subgroup, then extracts bits via CRT. This is why production deployments enforce **ECDHE (ephemeral)** and standards like X25519 mandate input validation.
+
+#### Case 4. Dual_EC_DRBG backdoor (2007/2013)
+
+A DRBG with **fixed constant points** $P, Q$ where $Q = eP$ for a secret $e$: anyone who knew $e$ (and only they) could recover internal state from outputs — the suspected NSA backdoor. A rare case where a "fixed constant" really was the problem, and the reason modern standard curves emphasize "nothing-up-my-sleeve" provenance (Curve25519, Brainpool, etc.).
+
+### 10.3 Conclusion — where to harden
+
+- ✅ **Fixed public domain parameters (curve, $G$) are fine** — they're public by design and ECDLP carries the security.
+- ❌ **Fixed or biased private keys / nonces are instant death** — nearly every real-world ECC failure lives here.
+- Practical guidance:
+  - ✅ **ECDHE** (fresh ephemeral key per session)
+  - ✅ Vetted CSPRNGs (`/dev/urandom`, `getrandom(2)`, platform APIs)
+  - ✅ **Deterministic nonces** (RFC 6979) or EdDSA-style nonce derivation `Hash(key ‖ message)` — robust against RNG failure
+  - ✅ Vetted standard curves (Curve25519, Ed25519, NIST P-256, secp256k1) — provenance has been publicly scrutinized
+  - ⚠️ **Don't roll your own curve** — the Dual_EC_DRBG lesson
+
+## 11. One-line summary
+
+> **Index Calculus exploits the number-theoretic structure (smoothness) of $\mathbb{F}_p^*$ to solve the DLP in sub-exponential time. That's why classical DH needs much larger keys than ECDH and how Logjam happened in production. ECDH's "fixed constants" are a public playground; the real-world failures are almost always in the randomness.**
+
+---
+
+### References
+
+- Adleman, L. (1979). *A subexponential algorithm for the discrete logarithm problem with applications to cryptography.*
+- Pomerance, C. (1987). *Fast, rigorous factorization and discrete logarithm algorithms.*
+- Adrian, D. et al. (2015). [*Imperfect Forward Secrecy: How Diffie-Hellman Fails in Practice*](https://weakdh.org/imperfect-forward-secrecy-ccs15.pdf) (Logjam paper).
+- Boudot, F. et al. (2020). *Comparing the difficulty of factorization and discrete logarithm: a 240-digit experiment.*
+- RFC 7919 — Negotiated Finite Field Diffie-Hellman Ephemeral Parameters for TLS.
