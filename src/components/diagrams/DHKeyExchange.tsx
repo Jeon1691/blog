@@ -102,7 +102,11 @@ function Party({
   publicLabel: string;
   publicValue: string;
   deriveValue: string;
-  texts: (typeof STRINGS)["ko"];
+  texts: {
+    pickSecret: string;
+    sendPublic: string;
+    derive: string;
+  };
 }) {
   return (
     <div className="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-4">

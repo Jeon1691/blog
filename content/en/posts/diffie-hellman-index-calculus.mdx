@@ -12,6 +12,7 @@ import { DLPBreakRecords } from "@/components/diagrams/DLPBreakRecords";
 import { LogjamAmortization } from "@/components/diagrams/LogjamAmortization";
 import { KeySizeEquivalence } from "@/components/diagrams/KeySizeEquivalence";
 import { ECCSafetyMatrix } from "@/components/diagrams/ECCSafetyMatrix";
+import { SecurityCurve } from "@/components/diagrams/SecurityCurve";
 
 > **Index Calculus** is the most powerful sub-exponential algorithm we have for the **Discrete Logarithm Problem (DLP)** in finite fields $\mathbb{F}_p^*$. It directly bounds the security of classical Diffie-Hellman and is the reason today's recommended DH modulus sizes start at ≥ 2048 bits.
 
@@ -165,6 +166,8 @@ The elliptic-curve group $E(\mathbb{F}_p)$ has no notion of "factorization" — 
 Index Calculus therefore doesn't apply, and the best generic attack is Pollard's rho at $O(\sqrt{n})$. That's the mathematical reason ECDH can use much shorter keys.
 
 <KeySizeEquivalence locale="en" />
+
+<SecurityCurve locale="en" />
 
 A few curve families *are* still vulnerable and must be avoided:
 

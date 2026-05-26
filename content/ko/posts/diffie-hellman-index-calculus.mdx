@@ -12,6 +12,7 @@ import { DLPBreakRecords } from "@/components/diagrams/DLPBreakRecords";
 import { LogjamAmortization } from "@/components/diagrams/LogjamAmortization";
 import { KeySizeEquivalence } from "@/components/diagrams/KeySizeEquivalence";
 import { ECCSafetyMatrix } from "@/components/diagrams/ECCSafetyMatrix";
+import { SecurityCurve } from "@/components/diagrams/SecurityCurve";
 
 > **Index Calculus**는 유한체 $\mathbb{F}_p^*$ 위에서 정의된 **이산로그 문제(DLP)** 를 풀기 위한 가장 강력한 sub-exponential 알고리즘이다. 고전 Diffie-Hellman(DH)의 안전성을 직접적으로 무너뜨리는 핵심 공격으로, 오늘날 권장되는 DH 모듈러스 크기(≥ 2048-bit)의 근거가 된다.
 
@@ -165,6 +166,8 @@ NFS-DLP는 현재 prime-field DLP의 최첨단으로, RSA 정수분해와 같은
 따라서 Index Calculus가 작동하지 않고, 가장 빠른 알고리즘은 일반군용 Pollard's rho ($O(\sqrt{n})$). 이것이 ECDH의 키 길이가 짧아도 되는 수학적 이유.
 
 <KeySizeEquivalence />
+
+<SecurityCurve />
 
 단, 다음 곡선들은 **취약**하므로 피해야 한다:
 
