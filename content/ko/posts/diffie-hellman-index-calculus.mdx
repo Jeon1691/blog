@@ -5,6 +5,10 @@ date: 2026-05-26
 tags: [암호학, Diffie-Hellman, 보안, ECDH]
 ---
 
+import { DLPComplexity } from "@/components/diagrams/DLPComplexity";
+import { DLPBreakRecords } from "@/components/diagrams/DLPBreakRecords";
+import { KeySizeEquivalence } from "@/components/diagrams/KeySizeEquivalence";
+
 > **Index Calculus**는 유한체 $\mathbb{F}_p^*$ 위에서 정의된 **이산로그 문제(DLP)** 를 풀기 위한 가장 강력한 sub-exponential 알고리즘이다. 고전 Diffie-Hellman(DH)의 안전성을 직접적으로 무너뜨리는 핵심 공격으로, 오늘날 권장되는 DH 모듈러스 크기(≥ 2048-bit)의 근거가 된다.
 
 ## 1. 배경 — Diffie-Hellman과 DLP
@@ -32,6 +36,8 @@ tags: [암호학, Diffie-Hellman, 보안, ECDH]
 여기서 $L_p[\alpha, c] = \exp\!\left(c (\ln p)^{\alpha} (\ln \ln p)^{1-\alpha}\right)$는 sub-exponential 함수.
 
 핵심 차이: **Index Calculus는 $\mathbb{F}_p^*$의 추가 구조(정수의 인수분해)를 이용**한다. 따라서 동일한 비트수의 타원곡선(ECDLP)에는 적용되지 않으며, 이것이 ECDH가 동일 보안 수준에서 훨씬 작은 키를 쓰는 이유다.
+
+<DLPComplexity />
 
 ## 3. Index Calculus 알고리즘 — 3단계 구조
 
@@ -111,6 +117,8 @@ NFS-DLP는 현재 prime-field DLP의 최첨단으로, RSA 정수분해와 같은
 | 2017 | 1024-bit (special prime) | SNFS-DLP | Fried, Gaudry, Heninger, Thomé (Logjam 후속) |
 | 2019+ | 795-bit (safe prime) | NFS-DLP | Boudot et al. |
 
+<DLPBreakRecords />
+
 → **1024-bit DH는 국가급 자원으로 깰 수 있는 수준**. NIST/IETF가 2048-bit 이상을 요구하는 직접적 근거.
 
 ## 7. Logjam 공격 (2015) — Index Calculus의 실전 응용
@@ -145,6 +153,8 @@ NFS-DLP는 현재 prime-field DLP의 최첨단으로, RSA 정수분해와 같은
 타원곡선군 $E(\mathbb{F}_p)$에는 "인수분해" 개념이 없다 — 작은 "소수 점" factor base를 만들 수 없다.
 
 따라서 Index Calculus가 작동하지 않고, 가장 빠른 알고리즘은 일반군용 Pollard's rho ($O(\sqrt{n})$). 이것이 ECDH의 키 길이가 짧아도 되는 수학적 이유.
+
+<KeySizeEquivalence />
 
 단, 다음 곡선들은 **취약**하므로 피해야 한다:
 

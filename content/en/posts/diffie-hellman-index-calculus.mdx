@@ -5,6 +5,10 @@ date: 2026-05-26
 tags: [cryptography, Diffie-Hellman, security, ECDH]
 ---
 
+import { DLPComplexity } from "@/components/diagrams/DLPComplexity";
+import { DLPBreakRecords } from "@/components/diagrams/DLPBreakRecords";
+import { KeySizeEquivalence } from "@/components/diagrams/KeySizeEquivalence";
+
 > **Index Calculus** is the most powerful sub-exponential algorithm we have for the **Discrete Logarithm Problem (DLP)** in finite fields $\mathbb{F}_p^*$. It directly bounds the security of classical Diffie-Hellman and is the reason today's recommended DH modulus sizes start at ≥ 2048 bits.
 
 ## 1. Background — Diffie-Hellman and the DLP
@@ -32,6 +36,8 @@ The attacker sees $g, p, A, B$ and wants $K$. The natural attack is to recover t
 Here $L_p[\alpha, c] = \exp\!\left(c (\ln p)^{\alpha} (\ln \ln p)^{1-\alpha}\right)$ is the sub-exponential function.
 
 The key distinction: **Index Calculus exploits extra structure in $\mathbb{F}_p^*$ — the integer factorization of group elements**. It does *not* apply to elliptic curves (ECDLP), which is why ECDH gets equivalent security at much smaller key sizes.
+
+<DLPComplexity locale="en" />
 
 ## 3. The Index Calculus algorithm — a four-stage shape
 
@@ -111,6 +117,8 @@ NFS-DLP is the state of the art for prime-field DLP — the same complexity clas
 | 2017 | 1024-bit (special prime) | SNFS-DLP | Fried, Gaudry, Heninger, Thomé (Logjam follow-up) |
 | 2019+ | 795-bit (safe prime) | NFS-DLP | Boudot et al. |
 
+<DLPBreakRecords locale="en" />
+
 → **1024-bit DH is within reach of nation-state resources** — the direct rationale for NIST/IETF requiring 2048-bit and above.
 
 ## 7. Logjam (2015) — Index Calculus in the wild
@@ -145,6 +153,8 @@ NFS-DLP is the state of the art for prime-field DLP — the same complexity clas
 The elliptic-curve group $E(\mathbb{F}_p)$ has no notion of "factorization" — you can't build a factor base of small "prime points."
 
 Index Calculus therefore doesn't apply, and the best generic attack is Pollard's rho at $O(\sqrt{n})$. That's the mathematical reason ECDH can use much shorter keys.
+
+<KeySizeEquivalence locale="en" />
 
 A few curve families *are* still vulnerable and must be avoided:
 
