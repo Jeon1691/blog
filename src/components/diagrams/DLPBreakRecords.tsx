@@ -2,6 +2,21 @@ import { Figure } from "./Figure";
 
 type Locale = "ko" | "en";
 
+type PrimeRecord = {
+  year: string;
+  bits: number;
+  tech: string;
+  who: string;
+  standing?: boolean;
+};
+
+type BinaryRecord = {
+  year: string;
+  bits: number;
+  tech: string;
+  who: string;
+};
+
 const STRINGS = {
   ko: {
     caption:
@@ -96,6 +111,8 @@ const BIN_SCALE_MAX = 32000; // bits axis (binary panel)
 
 export function DLPBreakRecords({ locale = "ko" }: { locale?: Locale }) {
   const s = STRINGS[locale];
+  const primeRecords: readonly PrimeRecord[] = s.primeRecords;
+  const binaryRecords: readonly BinaryRecord[] = s.binaryRecords;
   return (
     <Figure caption={s.caption}>
       <div className="space-y-7">
@@ -107,7 +124,7 @@ export function DLPBreakRecords({ locale = "ko" }: { locale?: Locale }) {
             </h4>
           </div>
           <div className="space-y-3">
-            {s.primeRecords.map((r) => (
+            {primeRecords.map((r) => (
               <div
                 key={r.year}
                 className="grid grid-cols-[3.5rem_1fr_5.5rem] sm:grid-cols-[4.5rem_1fr_6.5rem] items-center gap-3 text-xs sm:text-sm"
@@ -164,7 +181,7 @@ export function DLPBreakRecords({ locale = "ko" }: { locale?: Locale }) {
             </h4>
           </div>
           <div className="space-y-2">
-            {s.binaryRecords.map((r) => (
+            {binaryRecords.map((r) => (
               <div
                 key={r.year + r.bits}
                 className="grid grid-cols-[3.5rem_1fr_5.5rem] sm:grid-cols-[4.5rem_1fr_6.5rem] items-center gap-3 text-xs"
