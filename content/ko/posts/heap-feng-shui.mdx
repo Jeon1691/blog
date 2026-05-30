@@ -1,0 +1,257 @@
+---
+title: 힙 펭수이 (Heap Feng Shui) — 힙 메모리 레이아웃을 정밀 조작하는 익스플로잇 기법
+description: UAF/overflow 같은 corruption primitive를 신뢰성 있는 코드 실행으로 전환하는 메타 기법. Android(Scudo/SLUB)와 iOS(libmalloc/kalloc_type) 양쪽의 현대 mitigation을 함께 정리한다.
+date: 2026-05-31
+tags: [보안, 익스플로잇, 힙, Android, iOS]
+---
+
+> **TL;DR** — 힙 펭수이는 비결정적인 힙 할당기 동작을 **공격자가 원하는 순서·인접성·재사용 패턴**으로 강제하여, UAF/overflow 같은 corruption primitive를 **신뢰성 있는 코드 실행**으로 전환하는 메타 기법이다. 유저스페이스(Scudo, libmalloc)·커널(SLUB, kalloc) 모두에서 핵심 무기이며, 현대 mitigation(MTE, PAC, freelist randomization, SLAB_VIRTUAL, kalloc_type)을 다루는 연구의 출발점이 된다.
+
+## 1. 핵심 개념
+
+힙 취약점(UAF, heap overflow, double-free, type confusion 등)을 악용하려면 메모리에서 특정 객체가 **특정 위치에 배치**되어야 한다. 그러나 일반적인 힙 할당기는 다음 이유로 비결정적이다:
+
+- **Freelist 단편화** — 이전 할당/해제 이력에 따라 free chunk 분포가 달라짐
+- **Thread cache (tcache, per-CPU cache, magazine)** — 스레드/CPU별 LIFO 캐시로 인해 같은 크기여도 위치가 갈림
+- **Randomization mitigation** — Scudo의 chunk header XOR, SLUB의 randomized freelist, libmalloc의 nano/scalable zone 무작위화
+- **Allocator 내부 정책** — 크기 클래스 라운딩, region/slab/zone 경계, large alloc 분기
+
+힙 펭수이는 이 비결정성을 **할당/해제 시퀀스로 길들여서**(taming) 결정적(deterministic) 상태로 만든다. 이름은 공간 배치의 미학인 풍수(風水)에서 따왔으며, 2007년 Alexander Sotirov가 Black Hat USA에서 발표한 *"Heap Feng Shui in JavaScript"* 논문에서 처음 명명되었다.
+
+## 2. 역사와 발전
+
+| 연도 | 이벤트 | 의의 |
+| --- | --- | --- |
+| 2001 | Solar Designer — return-to-libc | 스택 corruption → 제어 흐름 탈취 시초 |
+| 2007 | Sotirov — Heap Feng Shui in JavaScript | IE 브라우저 힙 결정화 명명, heaplib.js 공개 |
+| 2010 | Chen — Pool Feng Shui (Windows kernel) | 커널 힙으로 개념 확장 |
+| 2013 | Tarjei Mandt — iOS kernel heap feng shui | iOS kalloc / zone allocator 결정화 연구 시초 |
+| 2016 | VUSec — Flip Feng Shui / Drammer | Rowhammer + 힙 배치로 하드웨어 결함 익스플로잇 |
+| 2019 | Scudo Hardened Allocator (Android 11) / kalloc_type (iOS 15+) | 유저·커널 양쪽에서 힙 익스플로잇 비용 대폭 상승 |
+| 2021 | Maze (USENIX Security) — 자동화 힙 펭수이 | 심볼릭 실행 기반 자동 배치 합성 |
+| 2023 | CVE-2023-20938 (Android Binder UAF), CVE-2023-32434 (iOS kernel) | 모바일 양 진영에서 SLUB/zone 펭수이 실전 사용 |
+| 2024 | WOOT '24 — Scudo 우회 2종 | hardened allocator도 구조적 약점 존재 |
+
+## 3. 동작 원리
+
+전체 흐름은 다음과 같이 7단계로 진행된다.
+
+1. **Defragmentation** — 빈 hole을 채워 힙을 단정렬화
+2. **Hole 생성** — 타겟 크기의 free slot을 의도적으로 확보
+3. **Victim 할당** — 취약 객체를 정확한 위치에 배치
+4. **Adjacent placement** — 공격자 제어 객체를 인접 슬롯에 배치
+5. **Trigger primitive** — UAF / overflow / double-free 트리거
+6. **Corruption** — 메타데이터 / vtable / 함수 포인터 덮어쓰기
+7. **Arbitrary R/W 또는 RIP control** — 임의 읽기/쓰기 또는 코드 흐름 탈취
+
+### 3.1 핵심 4가지 빌딩 블록
+
+1. **Massage(매시지)** — 같은 크기 객체를 대량 할당해서 freelist를 비우고 새 슬랩/region/zone을 강제 생성
+2. **Punch hole** — 의도한 위치만 free하여 다음 할당이 그 자리에 들어가도록 유도
+3. **Pin victim** — 취약 객체가 hole에 들어가도록 타이밍·크기를 제어
+4. **Place attacker chunk adjacent** — 인접 슬롯에 공격자 제어 데이터(payload-ready object)를 배치
+
+## 4. Heap Spraying vs Heap Feng Shui
+
+| | **Heap Spraying** | **Heap Feng Shui** |
+| --- | --- | --- |
+| **목적** | 셸코드/ROP gadget을 메모리 넓은 영역에 뿌림 | 특정 객체를 특정 슬롯에 정확히 배치 |
+| **정밀도** | 낮음 (확률적, 주소 예측) | 매우 높음 (결정적, 슬롯 단위) |
+| **용도** | 점프 타겟 주소 안정화 | corruption primitive → 코드 실행 전환 |
+| **전형 도구** | NOP sled + 셸코드 반복 | size class 매칭 + free 패턴 제어 |
+
+> 실전 익스플로잇은 보통 둘을 **결합**한다 — 펭수이로 corruption을 만든 뒤, 스프레이로 RIP 점프 타겟을 안정화.
+
+## 5. 플랫폼별 Allocator 비교
+
+### 5.1 한눈에 보기: Android vs iOS
+
+| | **Android (AOSP)** | **iOS (Darwin / XNU)** |
+| --- | --- | --- |
+| **유저스페이스 할당자** | Scudo (Android 11+) — bionic libc | libmalloc — nano / tiny / small / large zone |
+| **커널 할당자** | Linux SLUB (`kmalloc-*`) | XNU `zalloc` / `kalloc` (zone-based) |
+| **커널 객체 격리** | 일반 캐시 + 일부 dedicated cache (`SLAB_ACCOUNT`, `kvmalloc`) | `kalloc_type` (iOS 15+, 타입별 zone 분리) |
+| **Freelist 보호** | `CONFIG_SLAB_FREELIST_HARDENED` (XOR), `CONFIG_SLAB_FREELIST_RANDOM` | zone freelist는 PAC로 sign된 포인터 (arm64e), zone secret cookie |
+| **메모리 태깅** | **MTE** (ARMv8.5+, Pixel 8/9 production) | **PAC** (arm64e, A12+) + **kASLR** · zone redzone |
+| **CFI** | LLVM CFI (커널 + 유저) | PAC 기반 CFI (signed function pointer, return address) |
+| **Page-level 보호** | SLAB_VIRTUAL (실험적), pkey, eBPF lockdown | PPL (Page Protection Layer) → SPTM/TXM (A15+) — 페이지 테이블 자체를 별도 모니터가 보호 |
+| **대표 sandbox escape 표적** | system_server, mediaserver, binder, GPU driver | launchd, MIG 서버, IOKit user client, AppleAVD/IOMobileFrameBuffer |
+| **대표 spray primitive** | `msg_msg`, `pipe_buffer`, `sk_buff`, Binder transaction buffer | `mach_msg` OOL descriptors, `OSData`, `IOSurface`, ipc_kmsg |
+
+### 5.2 Android Scudo (유저스페이스)
+
+Android 11부터 기본 유저스페이스 할당자가 **Scudo**로 변경되었다.
+
+- **Primary allocator**: 16개의 size class를 가진 region 기반. region 내부는 LIFO freelist.
+- **Secondary allocator**: 큰 할당(기본 64KB↑)은 guard page로 둘러싸인 mmap 영역에 단독 배치.
+- **Chunk header**: XOR cookie + checksum으로 메타데이터 corruption 즉시 abort.
+- **Quarantine**: free된 chunk를 잠시 격리해 즉각적 UAF 재사용 차단.
+- **MTE 통합**: 하드웨어 태그가 켜진 기기에서는 tag mismatch 시 SIGSEGV.
+
+> **WOOT '24 우회 요약**
+>
+> **기법 1** — Scudo 내부 캐시 메커니즘을 악용해 chunk를 임의 주소에 가깝게 유도 (이후 패치됨).
+>
+> **기법 2** — Secondary allocator의 대형 chunk 처리 구조를 이용 — 구조적 문제라 패치 난이도가 높음.
+
+### 5.3 Linux SLUB (Android 커널)
+
+Android 커널은 Linux SLUB을 사용한다.
+
+- 범용 할당은 `kmalloc-*` 캐시 (8B ~ 8KB, 2의 거듭제곱 + 96B/192B 예외, 최근에는 `kmalloc-cg-*` 분리).
+- 같은 크기 캐시에 할당된 객체끼리만 인접 → **타겟 객체와 같은 크기의 유용한 커널 객체**를 찾는 것이 핵심.
+- **Per-CPU active slab + partial list + node partial** 3단계 구조.
+- **`CONFIG_SLAB_FREELIST_HARDENED`** — freelist 포인터를 `ptr XOR random XOR &ptr`로 난독화.
+- **`CONFIG_SLAB_FREELIST_RANDOM`** — slab 내 슬롯 순서 랜덤화 (slab 생성 시점 1회).
+- **`CONFIG_RANDOM_KMALLOC_CACHES`** — 같은 크기에 대해 16개 사본 캐시 중 hash로 랜덤 선택 (6.6+).
+- **`SLAB_VIRTUAL`** (실험) — slab page를 virtual address 전용 풀로 격리해 cross-cache 재사용 차단.
+
+### 5.4 iOS libmalloc (유저스페이스)
+
+iOS/macOS의 기본 유저스페이스 할당자.
+
+- **Nanozone**: 256B 이하 초소형 할당 전용. 16B 단위, magazine(per-CPU) 구조.
+- **Scalable zone (tiny/small/large)**:
+  - *tiny*: ≤1KB, 16B 양자화
+  - *small*: ≤15KB(또는 32KB on 16K page), 512B 양자화
+  - *large*: 그 이상, vm_allocate 직접
+- **Pointer Authentication (arm64e)**: zone freelist 포인터에 IB key로 PAC 서명. 위조 시 fault.
+- **Magazine secret / cookie**: chunk metadata XOR 보호.
+- **Guard malloc / libgmalloc**: 디버깅용, 모든 할당을 page 단위로 격리 (production 비활성).
+
+### 5.5 XNU zalloc / kalloc_type (iOS 커널)
+
+iOS 커널 힙은 SLUB과 구조가 다르며, 펭수이 전략도 다르다.
+
+- **Zone**: 같은 element size + 같은 "용도"의 할당을 모은 free list. `kalloc.*`, `ipc.ports`, `OSData` 등 수백 개의 named zone이 존재.
+- **kalloc heap 분리 (iOS 14+)**: `KHEAP_DEFAULT`, `KHEAP_DATA_BUFFERS`, `KHEAP_KEXT` 등 용도별 heap 격리 → 데이터/포인터를 같은 zone에 못 섞음.
+- **kalloc_type (iOS 15+, A12 이상)**: 컴파일 시점에 **타입 시그니처**를 부여, 같은 타입끼리만 한 zone에 할당. 서로 다른 구조체가 같은 슬롯을 재활용하는 것을 원천 차단 → type confusion 기반 익스플로잇 봉쇄.
+- **Zone require / zone_id check**: free 시 zone 일치 여부 검증.
+- **Zone gc**: 비어 있는 page를 회수해 cross-zone reuse를 어렵게 함.
+- **PPL → SPTM/TXM (A15+)**: 페이지 테이블 entry 자체를 별도 monitor가 검증해 R/W gadget으로 kernel text 패치 불가.
+
+> **Android SLUB vs iOS zalloc 한 줄 정리**
+>
+> SLUB은 "같은 size class는 한 풀에 다 들어간다 → 같은 크기 유용 객체 찾기 게임". iOS는 `kalloc_type` 이후 "같은 크기여도 타입이 다르면 못 섞인다 → 같은 type 안에서 무엇이 유용한지 찾기 게임".
+
+## 6. 유용한 커널/IPC 객체 카탈로그
+
+익스플로잇 신뢰성은 "corruption 시점에 인접 슬롯에 어떤 객체를 둘 수 있는가"로 결정된다.
+
+### Android (Linux SLUB)
+
+| 객체 | 크기 / 캐시 | 왜 유용한가 |
+| --- | --- | --- |
+| `msg_msg` | kmalloc-64 ~ kmalloc-4k (msgsnd 크기 제어) | 크기·내용 모두 유저 제어, OOB read/write primitive로 전환 용이 |
+| `pipe_buffer` | kmalloc-1k (16개 단위) | `pipe_buf_operations` 함수 포인터 → RIP 제어 (Dirty Pipe 류) |
+| `sk_buff` (`skb->data`) | kmalloc-512 / 1k / 2k / 4k (트래픽 크기) | 임의 크기/내용 spray, 네트워크로 원격 트리거 가능 |
+| `tty_struct` | kmalloc-1k | `tty_operations` 함수 포인터, 정보 누출에 자주 사용 |
+| `shm_file_data`, `seq_operations` | kmalloc-32 / 64 | 작은 캐시에서 함수 포인터 확보 |
+| Binder transaction buffer | 임의 크기 (process별 mmap region) | Android 특화, system_server와 동일 캐시 공유 |
+
+### iOS (XNU zalloc)
+
+| 객체 | Zone | 왜 유용한가 |
+| --- | --- | --- |
+| `ipc_kmsg` | `ipc.kmsgs` | mach_msg로 크기·내용 spray, OOL descriptor로 포인터 spray |
+| OOL ports array | `ipc.ports` | send right 배열을 임의 크기로 — fake port 만들기에 사용 |
+| `OSData` / `OSString` | `kalloc.data.*` (KHEAP_DATA_BUFFERS) | IOKit user client로 유저랜드에서 직접 spray, 내용 100% 제어 |
+| `IOSurface` properties | `kalloc.*` (size 다양) | IOSurfaceRoot로 유저에서 set/get → R/W primitive 변환의 고전 |
+| Mach voucher | `ipc.vouchers` | 참조 카운트 조작 + UAF 결합 시 강력 |
+| `vm_map_entry` | `VM map entries` | VM subsystem corruption → 페이지 매핑 탈취 |
+
+## 7. Cross-cache / Cross-zone 공격
+
+같은 캐시/zone 안에 둘 수 있는 유용한 객체가 없을 때, **slab/zone page 자체를 다른 캐시로 재활용**시키는 기법.
+
+- **Android**: `kmalloc-cg-*` 또는 dedicated cache에 갇힌 victim을 노릴 때, 해당 캐시의 slab page를 모두 free시켜 buddy allocator로 반환되게 한 뒤, 다른 캐시(`msg_msg` 등)가 그 페이지를 가져오도록 유도.
+  - 핵심 도구: `pcpu_alloc`, `kvfree`, `__free_pages_ok` 경합.
+  - 방어: `SLAB_VIRTUAL`, `kvmalloc` 분리, page tagging.
+- **iOS**: `kalloc_type` 도입 이후 같은 type만 한 zone을 공유하므로 cross-zone이 더 어렵다. 대신 **zone garbage collection**으로 page를 다른 zone에 재할당시키는 "zone-level feng shui" 연구가 진행 중.
+  - PAC와 SPTM이 추가로 cross-zone fake pointer 공격을 차단.
+
+## 8. 실전 사례
+
+<details>
+<summary><strong>CVE-2023-20938 — Android Binder UAF → Root</strong></summary>
+
+Android Red Team이 Binder 드라이버 UAF를 SLUB 펭수이로 익스플로잇하여 **untrusted app에서 root**를 획득.
+
+- GKI 커널 5.4 / 5.10 영향. 2023-02 / 2023-07 Security Bulletin에서 패치.
+- 핵심: Binder transaction buffer와 `msg_msg`를 같은 `kmalloc-*`에서 경합시켜 인접 배치.
+
+</details>
+
+<details>
+<summary><strong>Drammer — Rowhammer + Flip Feng Shui → Mobile Root</strong></summary>
+
+Rowhammer 하드웨어 비트플립 + 페이지 배치 제어로 **권한 없는 앱에서 Android 루트**.
+
+- 소프트웨어 취약점 없이 DRAM 결함만으로 결정적 루트.
+- 메모리 deduplication 없이도 성공 — 페이지 풀에서 PTE가 들어갈 슬롯을 펭수이로 확보한 결과.
+
+</details>
+
+<details>
+<summary><strong>CVE-2023-32434 — iOS kernel integer overflow (Operation Triangulation)</strong></summary>
+
+Kaspersky가 공개한 "Operation Triangulation" 체인의 커널 LPE 단계. XNU VM 서브시스템의 integer overflow를 통해 `vm_map_copy` 객체를 임의 크기로 만든 뒤, `ipc_kmsg`/`OSData`와 인접 배치하는 zone 펭수이로 임의 R/W 확보.
+
+- iOS 15.7.7, 16.5.1에서 패치.
+- 의의: PAC + kalloc_type 환경에서도 zone 펭수이가 여전히 실전 가능함을 증명.
+
+</details>
+
+<details>
+<summary><strong>CVE-2021-30883 — IOMobileFrameBuffer (FORCEDENTRY 후속 LPE)</strong></summary>
+
+IOMobileFrameBuffer 힙 overflow. `IOSurface` property를 인접 zone에 spray해 함수 포인터 영역을 덮어 RIP 제어.
+
+- in-the-wild 0-day로 사용됨. iOS 15.0.2에서 패치.
+
+</details>
+
+## 9. 현대 방어 기제 정리
+
+| 방어 | Android | iOS | 펭수이에 미치는 영향 |
+| --- | --- | --- | --- |
+| Freelist 난독화 | SLAB_FREELIST_HARDENED | PAC-signed freelist (arm64e) | fake free chunk 주입 차단 |
+| 슬롯 순서 무작위화 | SLAB_FREELIST_RANDOM | zone slot randomization | 인접성 예측 어려워짐 — spray 양으로 보완 |
+| 캐시 무작위화 | RANDOM_KMALLOC_CACHES | kalloc_type (타입 격리) | 같은 크기 객체 매칭 자체를 어렵게 함 |
+| 메모리 태깅 / 인증 | **MTE** (HW tag) | **PAC** (HW signed pointer) | UAF/overflow 자체를 즉시 검출 가능 (확률적/결정적) |
+| 페이지 권한 모니터 | SLAB_VIRTUAL (실험), pkey | **PPL → SPTM/TXM** | kernel text 패치를 R/W primitive로 못 함 |
+| CFI | LLVM CFI | PAC-CFI | vtable/fn ptr 덮어쓰기로 임의 점프 불가 |
+| Quarantine / GC | Scudo quarantine | zone gc + zone require | 즉각 UAF 재사용 차단, race window 강제 확대 |
+
+## 10. 자동화 / 연구 도구
+
+- **Maze (USENIX Security '21)** — 심볼릭 실행 기반 자동 힙 배치 합성. 익스플로잇 시나리오 입력 → 할당/해제 시퀀스 출력.
+- **SLUBStick (USENIX Security '24)** — Linux SLUB cross-cache 공격 자동화 프레임워크.
+- **Syzkaller + KASAN** — 트리거 시퀀스 발견 + 힙 상태 추적.
+- **kasld / kbase finder** — KASLR 우회용 정보 누출 자동화.
+- **iOS 측: KTRR/SPTM bypass research, panic log diffing** — 공개 도구가 적어 직접 PoC 작성이 일반적.
+- **MTE-aware fuzzing (HWASAN, scudo_standalone)** — 태그 mismatch를 코너 케이스로 활용.
+
+## 11. 참고 자료
+
+### 기초 / 역사
+
+- [Heap Feng Shui in JavaScript (Black Hat 2007, Alexander Sotirov)](https://blackhat.com/presentations/bh-usa-07/Sotirov/Whitepaper/bh-usa-07-sotirov-WP.pdf)
+- [Pool Feng Shui — Windows kernel (Chen, 2010)](https://www.blackhat.com/presentations/bh-dc-10/Mandt_Tarjei/BlackHat-DC-2010-Mandt-kernelpool-wp.pdf)
+- [Maze: Towards Automated Heap Feng Shui (USENIX Security '21)](https://www.usenix.org/system/files/sec21-wang-yan.pdf)
+
+### Android / Linux SLUB
+
+- [Linux kernel heap feng shui in 2022 (duasynt)](https://duasynt.com/blog/linux-kernel-heap-feng-shui-2022)
+- [Exploiting Android's Hardened Memory Allocator (WOOT '24)](https://www.usenix.org/system/files/woot24-mao.pdf)
+- [Attacking Android Binder: CVE-2023-20938 (Google Android Offensive Security)](https://androidoffsec.withgoogle.com/posts/attacking-android-binder-analysis-and-exploitation-of-cve-2023-20938/)
+- [SLUBStick (USENIX Security '24)](https://www.usenix.org/conference/usenixsecurity24/presentation/maar)
+- [Drammer: Flip Feng Shui Goes Mobile (VUSec)](https://www.vusec.net/projects/drammer/)
+
+### iOS / XNU
+
+- [Attacking the XNU Kernel in El Capitan (Mandt, BH EU 2015)](https://www.blackhat.com/docs/eu-15/materials/eu-15-Mandt-Attacking-The-XNU-Kernel-In-El-Capitan.pdf)
+- [iOS kernel heap revisited (Project Zero)](https://googleprojectzero.blogspot.com/2020/07/how-to-unc0ver-0day-in-7-days.html)
+- [kalloc_type — Type-aware allocation in XNU (Apple Platform Security Guide)](https://support.apple.com/guide/security/memory-safe-iboot-implementation-sec30d8847b4/web)
+- [Operation Triangulation: CVE-2023-32434 deep dive (Kaspersky SAS '23)](https://securelist.com/operation-triangulation-the-last-hardware-mystery/111669/)
+- [Project Zero — A Walk Through Project Zero Metrics (iOS allocator analysis)](https://googleprojectzero.blogspot.com/)
