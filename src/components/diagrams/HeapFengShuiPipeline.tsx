@@ -10,7 +10,7 @@ const STRINGS = {
     phaseSetup: "배치 제어",
     phaseExploit: "primitive 활용",
     steps: [
-      { id: "1", title: "Defragmentation", body: "빈 hole을 채워 힙을 단정렬화" },
+      { id: "1", title: "Defragmentation", body: "빈 hole을 채워 힙 단편화 해소" },
       { id: "2", title: "Hole 생성", body: "타겟 크기의 free slot 확보" },
       { id: "3", title: "Victim 할당", body: "취약 객체를 정확한 위치에 배치" },
       { id: "4", title: "Adjacent placement", body: "공격자 제어 객체를 인접 슬롯에" },

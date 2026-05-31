@@ -32,9 +32,9 @@ import { DefenseCoverage } from "@/components/diagrams/DefenseCoverage";
 | 연도 | 이벤트 | 의의 |
 | --- | --- | --- |
 | 1997 | Solar Designer — return-into-libc | 스택 corruption → 제어 흐름 탈취 시초 |
-| 2007 | Sotirov — Heap Feng Shui in JavaScript | IE 브라우저 힙 결정화 명명, heaplib.js 공개 |
+| 2007 | Sotirov — Heap Feng Shui in JavaScript | IE 브라우저 힙을 결정적으로 제어하는 기법 명명, heaplib.js 공개 |
 | 2010 | Chen — Pool Feng Shui (Windows kernel) | 커널 힙으로 개념 확장 |
-| 2013 | Tarjei Mandt — iOS kernel heap feng shui | iOS kalloc / zone allocator 결정화 연구 시초 |
+| 2013 | Tarjei Mandt — iOS kernel heap feng shui | iOS kalloc / zone allocator를 결정적으로 제어하는 연구 시초 |
 | 2016 | VUSec — Flip Feng Shui / Drammer | Rowhammer + 힙 배치로 하드웨어 결함 익스플로잇 |
 | 2020–2021 | Scudo 기본화 (Android 11, 2020) · kalloc_type (iOS 15, 2021 → iOS 16/Ventura 확대) | 유저·커널 양쪽에서 힙 익스플로잇 비용 대폭 상승 |
 | 2021 | Maze (USENIX Security) — 자동화 힙 펭수이 | 심볼릭 실행 기반 자동 배치 합성 |
@@ -59,7 +59,7 @@ import { DefenseCoverage } from "@/components/diagrams/DefenseCoverage";
 
 <HeapFengShuiPipeline />
 
-1. **Defragmentation** — 빈 hole을 채워 힙을 단정렬화
+1. **Defragmentation** — 빈 hole을 채워 힙 단편화를 해소
 2. **Hole 생성** — 타겟 크기의 free slot을 의도적으로 확보
 3. **Victim 할당** — 취약 객체를 정확한 위치에 배치
 4. **Adjacent placement** — 공격자 제어 객체를 인접 슬롯에 배치
@@ -69,7 +69,7 @@ import { DefenseCoverage } from "@/components/diagrams/DefenseCoverage";
 
 ### 3.1 핵심 4가지 빌딩 블록
 
-1. **Massage(매시지)** — 같은 크기 객체를 대량 할당해서 freelist를 비우고 새 슬랩/region/zone을 강제 생성
+1. **Massage** — 같은 크기 객체를 대량 할당해서 freelist를 비우고 새 슬랩/region/zone을 강제 생성
 2. **Punch hole** — 의도한 위치만 free하여 다음 할당이 그 자리에 들어가도록 유도
 3. **Pin victim** — 취약 객체가 hole에 들어가도록 타이밍·크기를 제어
 4. **Place attacker chunk adjacent** — 인접 슬롯에 공격자 제어 데이터(payload-ready object)를 배치

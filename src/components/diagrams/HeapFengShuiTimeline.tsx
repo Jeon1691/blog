@@ -14,12 +14,12 @@ type Event = {
 const STRINGS = {
   ko: {
     caption:
-      "Fig 1. 힙 펭수이 계보 — 브라우저 힙 결정화에서 출발해 커널·모바일로 번지고, 하드웨어 mitigation이 비용을 끌어올린 흐름.",
+      "Fig 1. 힙 펭수이 계보 — 브라우저 힙을 결정적으로 다루는 데서 출발해 커널·모바일로 번지고, 하드웨어 mitigation이 비용을 끌어올린 흐름.",
     note: "왼쪽 띠 색이 시대를 구분한다 — 태동(유저) → 커널 확장 → 모바일 실전 → 하드웨어 mitigation → 자동화.",
     events: [
-      { year: "2007", title: "Heap Feng Shui in JS", body: "Sotirov (Black Hat) — IE 힙을 결정화, heaplib.js 공개. 기법 명명.", era: "origin" },
+      { year: "2007", title: "Heap Feng Shui in JS", body: "Sotirov (Black Hat) — IE 힙을 결정적으로 제어, heaplib.js 공개. 기법 명명.", era: "origin" },
       { year: "2010", title: "Pool Feng Shui", body: "Windows 커널 풀로 개념 확장 (Chen).", era: "kernel" },
-      { year: "2013", title: "iOS kernel feng shui", body: "Mandt — XNU kalloc / zone 결정화 연구 시초.", era: "kernel" },
+      { year: "2013", title: "iOS kernel feng shui", body: "Mandt — XNU kalloc / zone을 결정적으로 제어하는 연구 시초.", era: "kernel" },
       { year: "2016", title: "Drammer / Flip Feng Shui", body: "VUSec — Rowhammer 비트플립 + 페이지 배치로 모바일 루트.", era: "mobile" },
       { year: "2020", title: "Scudo · kalloc_type", body: "Android 11 Scudo(2020) · iOS 15 kalloc_type(2021) — 유저·커널 양쪽 익스플로잇 비용 급상승.", era: "mitigation" },
       { year: "2021", title: "Maze (USENIX)", body: "심볼릭 실행으로 힙 배치 시퀀스 자동 합성.", era: "automation" },
