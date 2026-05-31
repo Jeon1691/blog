@@ -40,8 +40,18 @@ Heap feng shui **tames** that non-determinism with a crafted sequence of allocat
 | 2021 | Maze (USENIX Security) — automated heap feng shui | Symbolic-execution-based automatic layout synthesis |
 | 2023 | CVE-2023-20938 (Android Binder UAF), CVE-2023-32434 (iOS kernel) | SLUB/zone feng shui used in the wild on both mobile platforms |
 | 2024 | WOOT '24 — two Scudo bypasses | Even a hardened allocator has structural weaknesses |
+| 2024 | Dirty Pagedirectory (CVE-2024-1086, nf_tables) — *Flipping Pages* | Establishes **page-level feng shui**: reuse a buddy-returned page as a PTE |
+| 2025 | CROSS-X (ACM CCS) — generalized, reliable cross-cache | Stable, general cross-cache automation (the SLUBStick lineage) |
+| 2025 | **Apple MIE** (iPhone 17 / A19, EMTE-based) | **Always-on memory tagging** across the kernel + 70+ userland processes — targets feng shui's "silent corruption" premise |
+| 2025 | CVE-2025-0072 (Mali GPU) — **MTE bypass** · CVE-2025-38352 in-the-wild LPE | Even hardware tagging / strong mitigations can be bypassed — the mobile arms race continues |
 
 <HeapFengShuiTimeline locale="en" />
+
+**Recent direction (2024–2026)** — it boils down to three threads.
+
+1. **Page-level feng shui** — beyond slab/zone, the DirtyPagetable / Dirty Pagedirectory (CVE-2024-1086) family reuses a buddy-returned page as a **page table (PTE)**, which has become the de facto endpoint of cross-cache. Arbitrary PTE manipulation → physical-memory R/W → straight to kernel patching.
+2. **Cross-cache generalization** — SLUBStick (99%+ success) and CROSS-X (ACM CCS '25) pushed cross-cache reliability from the old ~40% up to production level.
+3. **The hardware-tagging arms race** — Apple **MIE** (2025, iPhone 17/A19) applies EMTE always-on across the kernel + 70+ userland processes, attacking feng shui's "silent corruption" premise head-on. Yet the same year's Mali-GPU **CVE-2025-0072** bypassed MTE — defenses raise the cost but don't end the game.
 
 ## 3. How it works
 
@@ -272,6 +282,10 @@ An IOMobileFrameBuffer heap overflow. Spray `IOSurface` properties into the adja
 - [Exploiting Android's Hardened Memory Allocator (WOOT '24)](https://www.usenix.org/system/files/woot24-mao.pdf)
 - [Attacking Android Binder: CVE-2023-20938 (Google Android Offensive Security)](https://androidoffsec.withgoogle.com/posts/attacking-android-binder-analysis-and-exploitation-of-cve-2023-20938/)
 - [SLUBStick (USENIX Security '24)](https://www.usenix.org/conference/usenixsecurity24/presentation/maar)
+- [CROSS-X: Generalized and Stable Cross-Cache Attack on the Linux Kernel (ACM CCS '25)](https://kaist-hacking.github.io/pubs/2025/kim:crossx.pdf)
+- [Flipping Pages — nf_tables CVE-2024-1086 (Dirty Pagedirectory)](https://pwning.tech/nftables/)
+- [Dirty Pagetable — page-table-based kernel exploitation](https://kuzey.rs/posts/Dirty_Page_Table/)
+- [Bypassing MTE with CVE-2025-0072 (GitHub Security Lab)](https://github.blog/security/vulnerability-research/bypassing-mte-with-cve-2025-0072/)
 - [Drammer: Flip Feng Shui Goes Mobile (VUSec)](https://www.vusec.net/projects/drammer/)
 
 ### iOS / XNU
@@ -280,3 +294,4 @@ An IOMobileFrameBuffer heap overflow. Spray `IOSurface` properties into the adja
 - [iOS kernel heap revisited (Project Zero)](https://googleprojectzero.blogspot.com/2020/07/how-to-unc0ver-0day-in-7-days.html)
 - [Towards the next generation of XNU memory safety — kalloc_type (Apple Security)](https://security.apple.com/blog/towards-the-next-generation-of-xnu-memory-safety/)
 - [Operation Triangulation: CVE-2023-32434 deep dive (Kaspersky SAS '23)](https://securelist.com/operation-triangulation-the-last-hardware-mystery/111669/)
+- [Memory Integrity Enforcement — Apple's memory-safety strategy (Apple Security, 2025)](https://security.apple.com/blog/memory-integrity-enforcement/)
