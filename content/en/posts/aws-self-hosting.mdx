@@ -5,6 +5,10 @@ date: 2026-05-24
 tags: [AWS, Terraform, Next.js, infra]
 ---
 
+import { SelfHostArchitecture } from "@/components/diagrams/SelfHostArchitecture";
+import { DeployPipeline } from "@/components/diagrams/DeployPipeline";
+import { CostBreakdown } from "@/components/diagrams/CostBreakdown";
+
 When building a blog, the first question is *where to host it*. Most
 Next.js blogs end up on Vercel — it's frictionless.
 
@@ -23,6 +27,16 @@ For a static site, though, running it yourself on AWS S3 + CloudFront is
 | **Route 53** | DNS, apex alias |
 | **GitHub Actions** | Keyless deploys via OIDC |
 
+The full request path looks like this. A visitor request flows DNS → CloudFront edge → OAC-signed → **private S3**; the bucket is never exposed directly.
+
+<SelfHostArchitecture locale="en" />
+
+### Deploy flow
+
+Static infra doesn't mean manual deploys. A push to `main` makes GitHub Actions **mint short-lived credentials via OIDC** (no stored access keys), then build → sync to S3 → invalidate CloudFront in one shot.
+
+<DeployPipeline locale="en" />
+
 ## Cost estimate
 
 For a small personal blog (~10k pageviews/month):
@@ -31,6 +45,8 @@ For a small personal blog (~10k pageviews/month):
 - Route 53: $0.5 (hosted zone)
 
 About **a dollar a month**. Compared to Vercel Pro ($20), the gap is wide.
+
+<CostBreakdown locale="en" />
 
 ## Trade-offs
 
