@@ -28,7 +28,7 @@ The attacker sees $g, p, A, B$ and wants $K$. The natural attack is to recover t
 
 <DHKeyExchange locale="en" />
 
-> DH's security ≤ the hardness of the DLP. Solve the DLP quickly and DH falls instantly.
+> DH's security ≤ the hardness of the DLP — **solve the DLP and DH falls**. The converse (breaking DH also solves the DLP) is unproven, and DH's standard security assumption is strictly CDH/DDH. So the DLP is an *upper bound* on DH's security, not an equivalence.
 
 ## 2. Why brute-force / BSGS aren't enough
 
@@ -128,7 +128,7 @@ NFS-DLP is the state of the art for prime-field DLP — the same complexity clas
 
 <DLPBreakRecords locale="en" />
 
-→ **1024-bit DH is within reach of nation-state resources** — the direct rationale for NIST/IETF requiring 2048-bit and above.
+→ **For a widely-reused 1024-bit prime, a nation-state could invest in the precomputation and break it** (per the Logjam estimate). An arbitrary 1024-bit safe prime hasn't been publicly broken in general — the threat is that *precomputation amortizes over a reused prime*. This is the direct rationale for NIST/IETF requiring 2048-bit and above.
 
 ## 7. Logjam (2015) — Index Calculus in the wild
 
@@ -147,7 +147,7 @@ NFS-DLP is the state of the art for prime-field DLP — the same complexity clas
 
 <LogjamAmortization locale="en" />
 
-> Takeaway: **don't share primes**, **use 2048-bit or larger**, **prefer ECDHE**.
+> Takeaway: **avoid weak (≤1024-bit), unvetted, or widely-reused primes**, **use 2048-bit or larger (ideally a vetted RFC 7919 FFDHE group)**, **prefer ECDHE**. — Sharing a well-vetted large prime is not itself the problem (RFC 7919 *is* a set of standard shared groups); the danger is precomputation amortizing over a *small, weak* prime.
 
 ## 8. Defense checklist
 
@@ -207,7 +207,7 @@ s_1 = k^{-1}(z_1 + r d), \quad s_2 = k^{-1}(z_2 + r d)
 k = \frac{z_1 - z_2}{s_1 - s_2}, \quad d = \frac{s_1 k - z_1}{r}
 $$
 
-The ECDH analogue would be "both sides reuse the same private key every session."
+Note this is a *signature* failure mode — nonce reuse exposes the signing private key algebraically and **immediately**. Static ECDH key reuse is a separate problem: it doesn't leak the key outright but becomes dangerous when combined with loss of forward secrecy and missing invalid-curve / small-subgroup validation (see Case 3).
 
 #### Case 2. Android Bitcoin wallet incident (2013)
 
@@ -215,7 +215,7 @@ A `SecureRandom` bug made ECDSA nonces **predictable**, draining a number of Bit
 
 #### Case 3. Static ECDH and Invalid Curve attacks
 
-If both parties **reuse static private keys**, an attacker sends "off-curve" points to push the secret into a small subgroup, then extracts bits via CRT. This is why production deployments enforce **ECDHE (ephemeral)** and standards like X25519 mandate input validation.
+If both parties **reuse static private keys**, an attacker sends "off-curve" points to push the secret into a small subgroup, then extracts bits via CRT. This is why production deployments enforce **ECDHE (ephemeral)**. X25519's safety, meanwhile, comes *not* from a standard that mandates point validation — RFC 7748 makes even the all-zero shared-secret check a MAY — but from the **curve design itself (twist security + the Montgomery ladder) reducing invalid-curve risk**.
 
 #### Case 4. Dual_EC_DRBG backdoor (2007/2013)
 
@@ -229,7 +229,7 @@ A DRBG with **fixed constant points** $P, Q$ where $Q = eP$ for a secret $e$: an
   - ✅ **ECDHE** (fresh ephemeral key per session)
   - ✅ Vetted CSPRNGs (`/dev/urandom`, `getrandom(2)`, platform APIs)
   - ✅ **Deterministic nonces** (RFC 6979) or EdDSA-style nonce derivation `Hash(key ‖ message)` — robust against RNG failure
-  - ✅ Vetted standard curves (Curve25519, Ed25519, NIST P-256, secp256k1) — provenance has been publicly scrutinized
+  - ✅ Vetted standard curves (Curve25519, Ed25519, NIST P-256, secp256k1) — widely analyzed with no known practical backdoor. Note that parameter-generation *transparency* varies by curve (Curve25519 is a rigid/nothing-up-my-sleeve design; NIST P-256's seed provenance is comparatively opaque)
   - ⚠️ **Don't roll your own curve** — the Dual_EC_DRBG lesson
 
 ## 11. One-line summary
