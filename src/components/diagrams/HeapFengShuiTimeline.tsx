@@ -25,6 +25,9 @@ const STRINGS = {
       { year: "2021", title: "Maze (USENIX)", body: "심볼릭 실행으로 힙 배치 시퀀스 자동 합성.", era: "automation" },
       { year: "2023", title: "CVE-2023-20938 / -32434", body: "Android Binder UAF · iOS Triangulation — 양 진영 실전 펭수이.", era: "mobile" },
       { year: "2024", title: "Scudo 우회 2종 (WOOT)", body: "hardened allocator도 구조적 약점이 있음을 증명.", era: "automation" },
+      { year: "2024", title: "Dirty Pagedirectory", body: "CVE-2024-1086(nf_tables) — buddy로 반환된 page를 PTE로 재활용하는 page-level feng shui.", era: "kernel" },
+      { year: "2025", title: "CROSS-X (CCS)", body: "cross-cache를 일반화·고신뢰화 (성공률 99%+). SLUBStick 계보.", era: "automation" },
+      { year: "2025", title: "Apple MIE (EMTE)", body: "iPhone 17/A19 — 커널+70여 유저 프로세스 상시 메모리 태깅. 단 CVE-2025-0072로 MTE 우회 사례도 등장.", era: "mitigation" },
     ] as Event[],
   },
   en: {
@@ -40,6 +43,9 @@ const STRINGS = {
       { year: "2021", title: "Maze (USENIX)", body: "Symbolic execution auto-synthesizes the heap layout sequence.", era: "automation" },
       { year: "2023", title: "CVE-2023-20938 / -32434", body: "Android Binder UAF · iOS Triangulation — feng shui in the wild on both platforms.", era: "mobile" },
       { year: "2024", title: "Two Scudo bypasses (WOOT)", body: "Proved even a hardened allocator has structural weaknesses.", era: "automation" },
+      { year: "2024", title: "Dirty Pagedirectory", body: "CVE-2024-1086 (nf_tables) — reuse a buddy-returned page as a PTE: page-level feng shui.", era: "kernel" },
+      { year: "2025", title: "CROSS-X (CCS)", body: "Generalized, high-reliability cross-cache (99%+ success). The SLUBStick lineage.", era: "automation" },
+      { year: "2025", title: "Apple MIE (EMTE)", body: "iPhone 17/A19 — always-on memory tagging across the kernel + 70+ userland processes. Yet CVE-2025-0072 already bypassed MTE.", era: "mitigation" },
     ] as Event[],
   },
 } as const;
@@ -59,7 +65,7 @@ export function HeapFengShuiTimeline({ locale = "ko" }: { locale?: Locale }) {
       <ol className="relative space-y-3">
         {s.events.map((e) => (
           <li
-            key={e.year}
+            key={`${e.year}-${e.title}`}
             className="grid grid-cols-[3.5rem_1fr] sm:grid-cols-[4.5rem_1fr] gap-3 items-stretch"
           >
             <div className="font-mono tabular-nums text-sm font-bold text-zinc-500 dark:text-zinc-400 pt-2 text-right">
