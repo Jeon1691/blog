@@ -44,6 +44,11 @@ body {
 .prose blockquote p::after {
   content: none;
 }
+/* typography plugin wraps inline code in literal backticks — strip them */
+.prose :where(code):not(:where(pre code))::before,
+.prose :where(code):not(:where(pre code))::after {
+  content: none;
+}
 
 [data-rehype-pretty-code-figure] pre {
   padding: 1rem;
