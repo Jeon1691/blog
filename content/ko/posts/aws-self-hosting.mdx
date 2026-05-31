@@ -8,51 +8,89 @@ tags: [AWS, Terraform, Next.js, 인프라]
 import { SelfHostArchitecture } from "@/components/diagrams/SelfHostArchitecture";
 import { DeployPipeline } from "@/components/diagrams/DeployPipeline";
 import { CostBreakdown } from "@/components/diagrams/CostBreakdown";
+import { CostScaling } from "@/components/diagrams/CostScaling";
 
-블로그를 만들 때 가장 먼저 부딪히는 질문은 **어디에 띄울 것인가**다.
-대부분의 Next.js 블로그는 Vercel로 흘러간다. 편하기 때문이다.
+블로그를 만들 때 가장 먼저 부딪히는 질문은 **어디에 띄울 것인가**다. 대부분의 Next.js 블로그는 Vercel로 흘러간다. `git push` 한 번이면 배포되고, 미리보기 환경까지 자동으로 붙으니 편하기 때문이다.
 
-하지만 정적 사이트의 경우, AWS S3 + CloudFront로 직접 운영하는 편이
-- **저렴하고** (월 1–5달러)
-- **빠르고** (전세계 CDN 엣지)
-- **자유롭다** (벤더 락인 없음, Lambda@Edge 등 확장 가능)
+하지만 이 블로그는 **빌드 타임에 전부 정적 파일로 떨어지는** 사이트(`output: 'export'`)다. 서버 사이드 렌더링도, 엣지 함수도 필요 없다. 그렇다면 굳이 PaaS의 추상화 비용을 낼 이유가 있을까? 정적 사이트라면 AWS S3 + CloudFront로 직접 운영하는 편이
 
-## 구성 요소
+- **저렴하고** — 작은 블로그는 월 1달러 미만
+- **빠르고** — 전 세계 CloudFront 엣지에서 캐시 서빙
+- **자유롭다** — 벤더 락인 없이 Lambda@Edge·보안 헤더·캐시 정책을 직접 제어
+
+이 글은 그 선택의 배경과, 흔히 오해받는 "트래픽이 늘면 결국 AWS가 더 비싸지지 않나?"라는 질문을 비용 모델로 직접 따져본 기록이다.
+
+## 아키텍처 한눈에 보기
+
+먼저 어떤 조각들이 어떻게 맞물리는지부터 보자.
 
 | 컴포넌트 | 역할 |
 | --- | --- |
-| **S3** | 정적 자산 저장. 퍼블릭 비활성화, OAC로만 접근 |
+| **S3** | 정적 자산 저장. 퍼블릭 접근 차단, OAC로만 접근 |
 | **CloudFront** | HTTPS, 압축, 보안 헤더, 글로벌 CDN |
-| **ACM** | TLS 인증서 (us-east-1 필수) |
-| **Route 53** | DNS, apex alias |
+| **ACM** | TLS 인증서 (CloudFront용은 us-east-1 필수) |
+| **Route 53** | DNS, apex(루트 도메인) alias |
 | **GitHub Actions** | OIDC 기반 무키 배포 |
 
-전체 요청 경로를 그림으로 보면 다음과 같다. 방문자 요청은 DNS → CloudFront 엣지 → OAC 서명을 거쳐 **비공개 S3**에 도달하며, S3 버킷은 외부에 직접 노출되지 않는다.
+방문자 요청은 DNS → CloudFront 엣지 → OAC 서명을 거쳐 **비공개 S3**에 도달한다. 조회수 같은 동적 요소만 별도의 Cloudflare Worker로 분리했다.
 
 <SelfHostArchitecture />
 
-### 배포 흐름
+설계에서 핵심이 되는 결정 세 가지:
 
-인프라가 정적이라고 배포까지 수동일 필요는 없다. `main`에 푸시하면 GitHub Actions가 **OIDC로 단기 자격증명을 발급**받아(저장된 액세스 키 없음) 빌드 → S3 동기화 → CloudFront 무효화까지 한 번에 처리한다.
+- **S3는 절대 퍼블릭으로 열지 않는다.** Block Public Access를 켜 두고, CloudFront의 **OAC(Origin Access Control)** 가 SigV4로 서명한 요청만 버킷 정책으로 허용한다. 버킷 URL이 유출돼도 직접 접근이 안 된다.
+- **TLS 인증서(ACM)는 us-east-1에 둔다.** CloudFront가 글로벌 서비스라 인증서를 버지니아 북부 리전에서만 읽어가기 때문이다. 사이트 자체는 어느 리전에 있어도 무관하다.
+- **apex 도메인은 alias 레코드로 건다.** `develicit.com` 같은 루트 도메인은 CNAME을 못 쓰므로, Route 53의 alias(A/AAAA)로 CloudFront 배포를 직접 가리킨다.
+
+## 배포: git push 한 번으로
+
+인프라가 정적이라고 배포까지 수동일 필요는 없다. `main`에 푸시하면 GitHub Actions가 **OIDC로 단기 자격증명을 발급**받아 빌드 → S3 동기화 → CloudFront 무효화까지 한 번에 처리한다.
 
 <DeployPipeline />
 
-## 비용 예상
+여기서 두 가지가 핵심이다.
 
-작은 개인 블로그 트래픽 기준 (월 1만 PV):
-- CloudFront: ~$0.5 (1GB 전송 무료 티어 후)
-- S3: ~$0.1 (스토리지 + GET 요청)
-- Route 53: $0.5 (호스트존)
+- **무키(keyless) 배포.** 장기 보관용 AWS 액세스 키를 GitHub Secrets에 넣지 않는다. 대신 GitHub의 OIDC 토큰으로 `AssumeRoleWithWebIdentity`를 호출해 매 실행마다 만료되는 단기 자격증명을 받는다. 키 유출 위험 자체가 사라진다.
+- **2단계 캐시 정책.** 해시가 박힌 `_next/` 자산은 `immutable`로 1년 캐시하고, HTML 등 나머지는 `max-age=0`으로 매번 재검증한다. 새 글은 즉시 반영되면서도 정적 자산은 엣지에서 최대한 오래 산다.
 
-대략 **월 1달러 미만**. Vercel Pro($20)와 비교하면 차이가 크다.
+## 비용 분석
+
+### 월 고정비 (저트래픽)
+
+작은 개인 블로그(월 1만 PV ≈ 약 5GB 전송) 기준에서는 CloudFront 전송·요청과 S3 요청이 대부분 **상시 무료 티어**(CloudFront 월 1TB 전송 + 1천만 요청) 안에 들어온다. 따라서 실질 고정비는 사실상 하나로 수렴한다.
+
+- CloudFront: ~\$0 (무료 티어 내)
+- S3: ~\$0.05 (스토리지 + 약간의 요청)
+- Route 53: \$0.50 (호스트존, 트래픽 무관 고정)
+- ACM: 무료
+
+대략 **월 \$0.5–1**. 사실상 Route 53 호스트존 비용이 전부다. Vercel Pro(\$20)와 비교하면 약 20배 차이다.
 
 <CostBreakdown />
 
+### 트래픽이 늘면 손익분기가 뒤집힐까?
+
+흔히 "트래픽이 폭증하면 결국 AWS가 더 비싸진다"고 생각하지만, 정적 사이트에서는 **달러 기준 손익분기가 사실상 존재하지 않는다**. 이유는 두 가지다.
+
+- **둘 다 월 1TB 전송이 무료다.** CloudFront는 월 1TB까지 무료, Vercel Pro도 1TB가 포함된다. PV당 평균 전송량을 0.5MB로 잡으면 1TB는 **약 200만 PV/월**에 해당한다. 이 구간까지는 트래픽이 늘어도 AWS는 사실상 고정(\$1 수준), Vercel은 \$20 고정이다.
+- **초과분 단가도 AWS가 더 싸다.** 무료 티어를 넘기면 CloudFront는 GB당 **\$0.085**(US/EU), Vercel은 **\$0.15** 수준이다. 즉 고트래픽 구간에서도 마진 단가가 낮아 역전되지 않는다.
+
+<CostScaling />
+
+결론적으로 정적 블로그에서 월 \$20은 *더 낮은 청구서*가 아니라 미리보기 배포·빌드·이미지 최적화 같은 **DX(개발 편의)** 를 사는 값이다. 진짜 손익분기는 "내 시간을 얼마나 쓸 것인가" 쪽에 있다. 다만 (1) 인도·남미 등 **고가 엣지 리전**, (2) 페이지 payload가 수 MB로 무거운 경우엔 PV당 전송량이 급증해 AWS 전송 비용도 빠르게 오르므로, **캐시 적중률과 이미지 최적화로 PV당 전송을 낮추는 것이 곧 비용 관리**다.
+
 ## 트레이드오프
 
-- 초기 설정이 더 복잡 (Terraform 학습)
-- 인스턴트 미리보기 환경은 직접 만들어야 함
-- 이미지 최적화는 직접 (CloudFront + Lambda@Edge 또는 빌드타임)
+물론 공짜 점심은 없다. 직접 운영의 비용은 *돈*이 아니라 *손*으로 치른다.
 
-하지만 한 번 만들면 거의 손이 안 간다. 게다가 Terraform으로
-인프라가 코드로 박제되니, 재현 가능성이 100%다.
+- **초기 설정이 더 복잡하다.** S3·CloudFront·OAC·ACM·Route 53를 손으로 엮는 대신 Terraform으로 코드화했지만, 그만큼 Terraform 학습 곡선이 든다.
+- **미리보기 환경을 직접 만들어야 한다.** Vercel의 PR별 프리뷰 URL 같은 건 기본 제공되지 않는다. 필요하면 별도 버킷/배포를 구성해야 한다.
+- **이미지 최적화도 직접 한다.** `next/image`의 런타임 최적화 대신 빌드 타임 최적화나 CloudFront + Lambda@Edge를 직접 붙여야 한다.
+
+대신 한 번 만들어 두면 손이 거의 안 간다. 인프라가 Terraform 코드로 박제되니 재현 가능성이 100%이고, 무엇이 어떻게 동작하는지 전부 내 눈에 보인다.
+
+## 마무리
+
+정리하면, **정적 사이트 + 직접 운영 의지**라는 조건에서는 AWS 자체 호스팅이 비용·속도·자유도 모두에서 우위다. 반대로 SSR/ISR이 필요하거나, 인프라에 시간을 쓰고 싶지 않거나, 팀 단위 미리보기 협업이 중요하다면 Vercel의 월 \$20은 충분히 합리적인 선택이다.
+
+나는 "내 블로그가 어떻게 서빙되는지 한 줄까지 이해하고 싶다"는 쪽이라 AWS를 골랐다. 그리고 그 선택이 매달 청구서로 후회를 남기지 않는다는 점이, 이 글을 쓰게 된 이유다.

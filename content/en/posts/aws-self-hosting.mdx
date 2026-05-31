@@ -8,51 +8,89 @@ tags: [AWS, Terraform, Next.js, infra]
 import { SelfHostArchitecture } from "@/components/diagrams/SelfHostArchitecture";
 import { DeployPipeline } from "@/components/diagrams/DeployPipeline";
 import { CostBreakdown } from "@/components/diagrams/CostBreakdown";
+import { CostScaling } from "@/components/diagrams/CostScaling";
 
-When building a blog, the first question is *where to host it*. Most
-Next.js blogs end up on Vercel — it's frictionless.
+When building a blog, the first question is *where to host it*. Most Next.js blogs end up on Vercel — one `git push` deploys it and preview environments come for free. It's frictionless.
 
-For a static site, though, running it yourself on AWS S3 + CloudFront is
-- **cheap** (under $5/mo)
-- **fast** (global CDN edge)
-- **free of lock-in** (extensible with Lambda@Edge, etc.)
+But this blog compiles to **fully static files at build time** (`output: 'export'`). No server-side rendering, no edge functions. So is there a reason to pay for a PaaS abstraction I don't use? For a static site, running it yourself on AWS S3 + CloudFront is
 
-## The pieces
+- **cheap** — under \$1/mo for a small blog
+- **fast** — cache-served from CloudFront's global edge
+- **free of lock-in** — full control over Lambda@Edge, security headers, and cache policy
+
+This post is the record of that decision — and a direct, modeled answer to the common worry: *"won't AWS end up costing more once traffic grows?"*
+
+## The architecture at a glance
+
+First, how the pieces fit together.
 
 | Component | Role |
 | --- | --- |
-| **S3** | Static asset storage, private, OAC-only access |
+| **S3** | Static asset storage, public access blocked, OAC-only |
 | **CloudFront** | HTTPS, compression, security headers, global CDN |
-| **ACM** | TLS cert (must live in us-east-1) |
-| **Route 53** | DNS, apex alias |
+| **ACM** | TLS cert (must live in us-east-1 for CloudFront) |
+| **Route 53** | DNS, apex (root domain) alias |
 | **GitHub Actions** | Keyless deploys via OIDC |
 
-The full request path looks like this. A visitor request flows DNS → CloudFront edge → OAC-signed → **private S3**; the bucket is never exposed directly.
+A visitor request flows DNS → CloudFront edge → OAC-signed → **private S3**. Only dynamic bits like view counts are split off to a separate Cloudflare Worker.
 
 <SelfHostArchitecture locale="en" />
 
-### Deploy flow
+Three decisions are central to the design:
 
-Static infra doesn't mean manual deploys. A push to `main` makes GitHub Actions **mint short-lived credentials via OIDC** (no stored access keys), then build → sync to S3 → invalidate CloudFront in one shot.
+- **S3 is never made public.** Block Public Access stays on, and the bucket policy only allows requests signed by CloudFront's **OAC (Origin Access Control)** via SigV4. Even if the bucket URL leaks, it can't be hit directly.
+- **The TLS cert (ACM) lives in us-east-1.** CloudFront is a global service that only reads certs from N. Virginia. The site itself can live in any region.
+- **The apex domain uses an alias record.** A root domain like `develicit.com` can't use a CNAME, so a Route 53 alias (A/AAAA) points straight at the CloudFront distribution.
+
+## Deploy: one git push
+
+Static infra doesn't mean manual deploys. A push to `main` makes GitHub Actions **mint short-lived credentials via OIDC**, then build → sync to S3 → invalidate CloudFront in one shot.
 
 <DeployPipeline locale="en" />
 
-## Cost estimate
+Two things matter here.
 
-For a small personal blog (~10k pageviews/month):
-- CloudFront: ~$0.5 (after the 1GB free tier)
-- S3: ~$0.1 (storage + GET requests)
-- Route 53: $0.5 (hosted zone)
+- **Keyless deploys.** No long-lived AWS access keys sit in GitHub Secrets. Instead, GitHub's OIDC token calls `AssumeRoleWithWebIdentity` to obtain expiring, per-run credentials. The leak risk simply disappears.
+- **Two-tier cache policy.** Hash-stamped `_next/` assets are cached `immutable` for a year; HTML and the rest use `max-age=0` so they revalidate every time. New posts show up instantly while static assets live as long as possible at the edge.
 
-About **a dollar a month**. Compared to Vercel Pro ($20), the gap is wide.
+## Cost analysis
+
+### Fixed monthly cost (low traffic)
+
+For a small personal blog (~10k PV/month ≈ ~5 GB transfer), CloudFront transfer/requests and S3 requests mostly fall inside the **always-free tier** (CloudFront's 1 TB transfer + 10M requests per month). So the real fixed cost collapses to essentially one line item.
+
+- CloudFront: ~\$0 (within free tier)
+- S3: ~\$0.05 (storage + a few requests)
+- Route 53: \$0.50 (hosted zone, fixed regardless of traffic)
+- ACM: free
+
+About **\$0.5–1/mo** — basically just the Route 53 hosted zone. Against Vercel Pro (\$20), that's roughly a 20× gap.
 
 <CostBreakdown locale="en" />
 
+### Does the break-even flip as traffic grows?
+
+People assume "if traffic spikes, AWS eventually costs more," but for a static site there's effectively **no dollar break-even**. Two reasons:
+
+- **Both include 1 TB/mo egress free.** CloudFront is free up to 1 TB/month; Vercel Pro includes 1 TB too. At ~0.5 MB average transfer per pageview, 1 TB is about **2M pageviews/month**. Up to that point AWS stays essentially flat (~\$1) while Vercel is flat at \$20.
+- **AWS's overage rate is also lower.** Past the free tier, CloudFront is **\$0.085/GB** (US/EU) vs Vercel's **~\$0.15/GB**. So even at high traffic the marginal rate keeps AWS ahead — it never flips.
+
+<CostScaling locale="en" />
+
+So for a static blog, \$20/mo doesn't buy a *lower bill* — it buys **DX**: preview deploys, build minutes, image optimization. The real break-even is "how much of your own time will you spend." The two exceptions where AWS gets expensive fast: (1) **costly edge regions** like India/South America, and (2) multi-MB page payloads that spike per-PV transfer — so **keeping per-PV egress low via caching and image optimization is cost control**.
+
 ## Trade-offs
 
-- More upfront setup (Terraform learning curve)
-- Preview environments are DIY
-- Image optimization is on you (CloudFront + Lambda@Edge or build-time)
+There's no free lunch, of course. With self-hosting you pay the cost in *effort*, not dollars.
 
-Once it's running, though, maintenance is essentially zero. And because
-the infra lives in Terraform, reproducibility is 100%.
+- **More upfront setup.** Instead of wiring S3 · CloudFront · OAC · ACM · Route 53 by hand, I codified it in Terraform — but that's a learning curve of its own.
+- **Preview environments are DIY.** There's no per-PR preview URL like Vercel's out of the box; you build your own bucket/distribution if you want one.
+- **Image optimization is on you.** Instead of `next/image`'s runtime optimization, you do it at build time or bolt on CloudFront + Lambda@Edge yourself.
+
+In return, once it's built, maintenance is near zero. The infra is frozen as Terraform code, so reproducibility is 100% — and I can see exactly how every part works.
+
+## Wrapping up
+
+To sum up: given **a static site plus the willingness to operate it yourself**, AWS self-hosting wins on cost, speed, and freedom. Conversely, if you need SSR/ISR, don't want to spend time on infra, or rely on team-wide preview collaboration, Vercel's \$20/mo is a perfectly reasonable call.
+
+I'm in the camp of "I want to understand, line by line, how my blog is served" — so I picked AWS. That the choice never leaves me regretting it on the monthly bill is exactly why I wrote this up.
