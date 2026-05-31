@@ -1,5 +1,27 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { isLocale, getDictionary } from "@/lib/locales";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ lang: string }>;
+}): Promise<Metadata> {
+  const { lang } = await params;
+  if (!isLocale(lang)) return {};
+  const dict = getDictionary(lang);
+  return {
+    title: dict.nav.about,
+    alternates: {
+      canonical: `/${lang}/about/`,
+      languages: {
+        ko: "/ko/about/",
+        en: "/en/about/",
+        "x-default": "/ko/about/",
+      },
+    },
+  };
+}
 
 export default async function About({
   params,

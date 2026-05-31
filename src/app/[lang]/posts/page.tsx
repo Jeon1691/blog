@@ -1,7 +1,29 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { isLocale, getDictionary } from "@/lib/locales";
 import { getAllPosts } from "@/lib/posts";
 import { PostCard } from "@/components/PostCard";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ lang: string }>;
+}): Promise<Metadata> {
+  const { lang } = await params;
+  if (!isLocale(lang)) return {};
+  const dict = getDictionary(lang);
+  return {
+    title: dict.nav.posts,
+    alternates: {
+      canonical: `/${lang}/posts/`,
+      languages: {
+        ko: "/ko/posts/",
+        en: "/en/posts/",
+        "x-default": "/ko/posts/",
+      },
+    },
+  };
+}
 
 export default async function PostsIndex({
   params,

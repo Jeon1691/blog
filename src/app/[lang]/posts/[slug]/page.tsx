@@ -30,12 +30,19 @@ export async function generateMetadata({
   const { lang, slug } = await params;
   if (!isLocale(lang)) return {};
   const meta = getPostMeta(lang, slug);
+  // Only advertise hreflang alternates for locales that actually have this post.
+  const langsWithPost = locales.filter((l) => getAllSlugs(l).includes(slug));
+  const defaultLang = langsWithPost.includes("ko") ? "ko" : langsWithPost[0];
+  const languages: Record<string, string> = Object.fromEntries(
+    langsWithPost.map((l) => [l, `/${l}/posts/${slug}/`]),
+  );
+  languages["x-default"] = `/${defaultLang}/posts/${slug}/`;
   return {
     title: meta.title,
     description: meta.description,
     keywords: meta.tags,
     authors: [{ name: site.author, url: site.authorUrl }],
-    alternates: { canonical: `/${lang}/posts/${slug}/` },
+    alternates: { canonical: `/${lang}/posts/${slug}/`, languages },
     openGraph: {
       type: "article",
       title: meta.title,
