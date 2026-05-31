@@ -16,7 +16,7 @@ import { CostScaling } from "@/components/diagrams/CostScaling";
 
 - **저렴하고** — 작은 블로그는 월 1달러 미만
 - **빠르고** — 전 세계 CloudFront 엣지에서 캐시 서빙
-- **자유롭다** — 벤더 락인 없이 Lambda@Edge·보안 헤더·캐시 정책을 직접 제어
+- **락인이 덜하고** — Vercel 종속은 줄이고 Lambda@Edge·보안 헤더·캐시 정책을 직접 제어 (단 CloudFront·OAC·Route 53 등 AWS 의존은 생긴다)
 
 이 글은 그 선택의 배경과, 흔히 오해받는 "트래픽이 늘면 결국 AWS가 더 비싸지지 않나?"라는 질문을 비용 모델로 직접 따져본 기록이다.
 
@@ -32,7 +32,7 @@ import { CostScaling } from "@/components/diagrams/CostScaling";
 | **Route 53** | DNS, apex(루트 도메인) alias |
 | **GitHub Actions** | OIDC 기반 무키 배포 |
 
-방문자 요청은 DNS → CloudFront 엣지 → OAC 서명을 거쳐 **비공개 S3**에 도달한다. 조회수 같은 동적 요소만 별도의 Cloudflare Worker로 분리했다.
+방문자 요청은 DNS → CloudFront 엣지 → OAC 서명을 거쳐 **비공개 S3**에 도달한다. 조회수 같은 동적 요소만 별도의 Cloudflare Worker로 분리했다. (Workers/KV 무료 한도는 10만 req/day·KV write 1천/day로, 소규모 블로그엔 충분하지만 고트래픽에서 PV마다 조회수 POST를 찍으면 한도·비용을 고려해야 한다.)
 
 <SelfHostArchitecture />
 
@@ -64,7 +64,7 @@ import { CostScaling } from "@/components/diagrams/CostScaling";
 - Route 53: \$0.50 (호스트존, 트래픽 무관 고정)
 - ACM: 무료
 
-대략 **월 \$0.5–1**. 사실상 Route 53 호스트존 비용이 전부다. Vercel Pro(\$20)와 비교하면 약 20배 차이다.
+대략 **월 \$0.5–1**. 사실상 Route 53 호스트존 비용이 전부다. Vercel Pro(\$20)와 비교하면 약 20배 차이다. (다만 개인·비상업 블로그라면 Vercel **Hobby**가 무료이고 월 100GB 전송이 포함되므로, \$20 비교는 *Pro가 필요한 경우*에 한한다.)
 
 <CostBreakdown />
 
@@ -91,6 +91,6 @@ import { CostScaling } from "@/components/diagrams/CostScaling";
 
 ## 마무리
 
-정리하면, **정적 사이트 + 직접 운영 의지**라는 조건에서는 AWS 자체 호스팅이 비용·속도·자유도 모두에서 우위다. 반대로 SSR/ISR이 필요하거나, 인프라에 시간을 쓰고 싶지 않거나, 팀 단위 미리보기 협업이 중요하다면 Vercel의 월 \$20은 충분히 합리적인 선택이다.
+정리하면, **정적 사이트이고 · (무료 Hobby로는 부족해) Vercel Pro가 필요하며 · US/EU 위주 트래픽 · 직접 운영할 의지가 있다**는 조건이라면 AWS 자체 호스팅이 비용·속도에서 우위다. 반대로 무료 Hobby로 충분하거나, SSR/ISR이 필요하거나, 인프라에 시간을 쓰고 싶지 않거나, 팀 단위 미리보기 협업이 중요하다면 Vercel이 충분히 합리적인 선택이다.
 
 나는 "내 블로그가 어떻게 서빙되는지 한 줄까지 이해하고 싶다"는 쪽이라 AWS를 골랐다. 그리고 그 선택이 매달 청구서로 후회를 남기지 않는다는 점이, 이 글을 쓰게 된 이유다.

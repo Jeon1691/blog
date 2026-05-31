@@ -24,9 +24,9 @@ const STRINGS = {
     verdict:
       "정적 사이트에서는 모든 구간에서 AWS가 더 싸다. 월 $20은 ‘더 낮은 청구서'가 아니라 미리보기 배포·빌드·이미지 최적화 같은 DX를 사는 값이다.",
     caveat:
-      "단 두 경우엔 AWS도 빠르게 비싸진다 — (1) 인도·남미 등 고가 엣지 리전($0.10~0.17/GB), (2) 페이지 payload가 수 MB로 무거워 PV당 전송량이 급증할 때. 캐시·이미지 최적화로 PV당 전송을 낮추는 게 곧 비용 관리다.",
+      "단 두 경우엔 AWS도 빠르게 비싸진다 — (1) 인도·남미·일부 APAC 등 고가 엣지 리전(US/EU $0.085 대비 약 $0.11~0.12/GB), (2) 페이지 payload가 수 MB로 무거워 PV당 전송량이 급증할 때. 캐시·이미지 최적화로 PV당 전송을 낮추는 게 곧 비용 관리다.",
     assumptions:
-      "가정: PV당 평균 egress 0.5MB, CloudFront US/EU $0.085/GB (월 1TB 무료), Vercel Pro 1TB 포함 후 $0.15/GB, Route 53 $0.5 고정. 실제 비용은 페이지 무게·리전·캐시 적중률에 따라 달라진다.",
+      "가정: PV당 평균 egress 0.5MB, CloudFront US/EU $0.085/GB (월 1TB 무료), Vercel Pro 1TB 포함 후 $0.15/GB, Route 53 $0.5 고정. 전송 비용만 모델링했으며, 매우 높은 PV에서는 요청 수 과금(CloudFront 1천만 요청 초과분, Vercel Edge Requests $0.002/1K)도 더해진다. 실제 비용은 페이지 무게·리전·캐시 적중률에 따라 달라진다.",
     unit: "/월",
   },
   en: {
@@ -50,9 +50,9 @@ const STRINGS = {
     verdict:
       "For a static site, AWS is cheaper across the board. The $20/mo doesn't buy a lower bill — it buys DX: preview deploys, build minutes, image optimization.",
     caveat:
-      "AWS does get expensive fast in two cases — (1) costly edge regions like India/South America ($0.10–0.17/GB), (2) multi-MB page payloads that spike per-PV transfer. Lowering per-PV egress via caching and image optimization IS cost control.",
+      "AWS does get expensive fast in two cases — (1) costly edge regions like India/South America/some of APAC (~$0.11–0.12/GB vs $0.085 for US/EU), (2) multi-MB page payloads that spike per-PV transfer. Lowering per-PV egress via caching and image optimization IS cost control.",
     assumptions:
-      "Assumptions: 0.5 MB average egress per PV, CloudFront US/EU $0.085/GB (1 TB/mo free), Vercel Pro 1 TB included then $0.15/GB, Route 53 $0.5 fixed. Real cost varies with page weight, region, and cache hit ratio.",
+      "Assumptions: 0.5 MB average egress per PV, CloudFront US/EU $0.085/GB (1 TB/mo free), Vercel Pro 1 TB included then $0.15/GB, Route 53 $0.5 fixed. Only transfer is modeled; at very high PV, request charges add up (CloudFront beyond 10M requests, Vercel Edge Requests $0.002/1K). Real cost varies with page weight, region, and cache hit ratio.",
     unit: "/mo",
   },
 } as const;

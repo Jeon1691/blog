@@ -16,7 +16,7 @@ But this blog compiles to **fully static files at build time** (`output: 'export
 
 - **cheap** — under \$1/mo for a small blog
 - **fast** — cache-served from CloudFront's global edge
-- **free of lock-in** — full control over Lambda@Edge, security headers, and cache policy
+- **less lock-in** — drops the Vercel dependency for direct control over Lambda@Edge, security headers, and cache policy (though it does add AWS dependencies: CloudFront, OAC, Route 53)
 
 This post is the record of that decision — and a direct, modeled answer to the common worry: *"won't AWS end up costing more once traffic grows?"*
 
@@ -32,7 +32,7 @@ First, how the pieces fit together.
 | **Route 53** | DNS, apex (root domain) alias |
 | **GitHub Actions** | Keyless deploys via OIDC |
 
-A visitor request flows DNS → CloudFront edge → OAC-signed → **private S3**. Only dynamic bits like view counts are split off to a separate Cloudflare Worker.
+A visitor request flows DNS → CloudFront edge → OAC-signed → **private S3**. Only dynamic bits like view counts are split off to a separate Cloudflare Worker. (Workers/KV free limits are 100k req/day and 1k KV writes/day — fine for a small blog, but if you POST a view count per PV, watch the limits/cost at high traffic.)
 
 <SelfHostArchitecture locale="en" />
 
@@ -64,7 +64,7 @@ For a small personal blog (~10k PV/month ≈ ~5 GB transfer), CloudFront transfe
 - Route 53: \$0.50 (hosted zone, fixed regardless of traffic)
 - ACM: free
 
-About **\$0.5–1/mo** — basically just the Route 53 hosted zone. Against Vercel Pro (\$20), that's roughly a 20× gap.
+About **\$0.5–1/mo** — basically just the Route 53 hosted zone. Against Vercel Pro (\$20), that's roughly a 20× gap. (For a personal/non-commercial blog, though, Vercel **Hobby** is free and includes 100 GB/mo transfer, so the \$20 comparison only applies *when you actually need Pro*.)
 
 <CostBreakdown locale="en" />
 
@@ -91,6 +91,6 @@ In return, once it's built, maintenance is near zero. The infra is frozen as Ter
 
 ## Wrapping up
 
-To sum up: given **a static site plus the willingness to operate it yourself**, AWS self-hosting wins on cost, speed, and freedom. Conversely, if you need SSR/ISR, don't want to spend time on infra, or rely on team-wide preview collaboration, Vercel's \$20/mo is a perfectly reasonable call.
+To sum up: when you have **a static site · need Vercel Pro (the free Hobby tier isn't enough) · mostly US/EU traffic · and the willingness to operate it yourself**, AWS self-hosting wins on cost and speed. Conversely, if the free Hobby tier is enough, or you need SSR/ISR, don't want to spend time on infra, or rely on team-wide preview collaboration, Vercel is a perfectly reasonable call.
 
 I'm in the camp of "I want to understand, line by line, how my blog is served" — so I picked AWS. That the choice never leaves me regretting it on the monthly bill is exactly why I wrote this up.

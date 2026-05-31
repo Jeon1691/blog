@@ -6,7 +6,7 @@ const STRINGS = {
   ko: {
     caption:
       "Fig 1. 요청 경로 아키텍처 — DNS → 엣지(CloudFront) → OAC 서명 → 비공개 S3. 조회수만 별도 Cloudflare Worker로 분리.",
-    note: "정적 자산은 100% AWS 엣지에서, 동적 조회수만 Cloudflare Worker+KV로 — origin(S3)은 외부에 직접 노출되지 않는다.",
+    note: "캐시 히트 시 AWS 엣지에서 서빙되고(캐시 미스·HTML 재검증은 S3 origin까지 간다), 동적 조회수만 Cloudflare Worker+KV로 분리 — origin(S3)은 외부에 직접 노출되지 않는다.",
     tierClient: "클라이언트",
     tierDns: "DNS",
     tierEdge: "엣지 / CDN",
@@ -37,7 +37,7 @@ const STRINGS = {
   en: {
     caption:
       "Fig 1. Request-path architecture — DNS → edge (CloudFront) → OAC-signed → private S3. View counts split off to a Cloudflare Worker.",
-    note: "Static assets serve 100% from the AWS edge; only the dynamic view count lives on a Cloudflare Worker + KV — the S3 origin is never exposed directly.",
+    note: "On a cache hit, assets serve from the AWS edge (cache misses / HTML revalidation reach the S3 origin); only the dynamic view count lives on a Cloudflare Worker + KV — the S3 origin is never exposed directly.",
     tierClient: "Client",
     tierDns: "DNS",
     tierEdge: "Edge / CDN",
