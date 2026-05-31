@@ -1,0 +1,282 @@
+---
+title: "Heap Feng Shui — Precisely Shaping Heap Memory Layout for Exploitation"
+description: The meta-technique that turns a corruption primitive like UAF/overflow into reliable code execution. A tour of modern mitigations on both Android (Scudo/SLUB) and iOS (libmalloc/kalloc_type).
+date: 2026-05-31
+tags: [security, exploitation, heap, Android, iOS]
+---
+
+import { HeapFengShuiTimeline } from "@/components/diagrams/HeapFengShuiTimeline";
+import { HeapFengShuiPipeline } from "@/components/diagrams/HeapFengShuiPipeline";
+import { HeapStateEvolution } from "@/components/diagrams/HeapStateEvolution";
+import { SprayVsFengShui } from "@/components/diagrams/SprayVsFengShui";
+import { AllocatorStack } from "@/components/diagrams/AllocatorStack";
+import { CacheIsolationModel } from "@/components/diagrams/CacheIsolationModel";
+import { CrossCacheFlow } from "@/components/diagrams/CrossCacheFlow";
+import { DefenseCoverage } from "@/components/diagrams/DefenseCoverage";
+
+> **TL;DR** — Heap feng shui is the meta-technique of coercing a non-deterministic heap allocator into the **order, adjacency, and reuse pattern the attacker wants**, turning a corruption primitive like UAF/overflow into **reliable code execution**. It's a core weapon in both userspace (Scudo, libmalloc) and the kernel (SLUB, kalloc), and the starting point for any study of modern mitigations (MTE, PAC, freelist randomization, SLAB_VIRTUAL, kalloc_type).
+
+## 1. The core idea
+
+To exploit a heap bug (UAF, heap overflow, double-free, type confusion, …), a specific object has to land at a **specific location** in memory. But a normal heap allocator is non-deterministic, for several reasons:
+
+- **Freelist fragmentation** — the distribution of free chunks depends on the prior alloc/free history
+- **Thread caches (tcache, per-CPU cache, magazine)** — per-thread/per-CPU LIFO caches split same-size objects across locations
+- **Randomization mitigations** — Scudo's chunk-header checksum, SLUB's randomized freelist, libmalloc's nano/scalable zone randomization
+- **Allocator-internal policy** — size-class rounding, region/slab/zone boundaries, large-allocation branches
+
+Heap feng shui **tames** that non-determinism with a crafted sequence of allocations and frees, driving the heap into a deterministic state. The name comes from feng shui (風水), the art of spatial arrangement, and was coined in Alexander Sotirov's 2007 Black Hat USA paper *"Heap Feng Shui in JavaScript."*
+
+## 2. History and evolution
+
+| Year | Event | Significance |
+| --- | --- | --- |
+| 2001 | Solar Designer — return-to-libc | First control-flow hijack from stack corruption |
+| 2007 | Sotirov — Heap Feng Shui in JavaScript | Named IE browser heap shaping, released heaplib.js |
+| 2010 | Chen — Pool Feng Shui (Windows kernel) | Extended the idea to the kernel heap |
+| 2013 | Tarjei Mandt — iOS kernel heap feng shui | First study of shaping the iOS kalloc / zone allocator |
+| 2016 | VUSec — Flip Feng Shui / Drammer | Rowhammer + heap placement to exploit a hardware fault |
+| 2020–2021 | Scudo default (Android 11, 2020) · kalloc_type (iOS 15, 2021 → expanded in iOS 16/Ventura) | Sharply raised heap-exploit cost on both userspace and kernel |
+| 2021 | Maze (USENIX Security) — automated heap feng shui | Symbolic-execution-based automatic layout synthesis |
+| 2023 | CVE-2023-20938 (Android Binder UAF), CVE-2023-32434 (iOS kernel) | SLUB/zone feng shui used in the wild on both mobile platforms |
+| 2024 | WOOT '24 — two Scudo bypasses | Even a hardened allocator has structural weaknesses |
+
+<HeapFengShuiTimeline locale="en" />
+
+## 3. How it works
+
+The overall flow runs in seven stages.
+
+<HeapFengShuiPipeline locale="en" />
+
+1. **Defragmentation** — fill holes to compact the heap
+2. **Hole creation** — deliberately free a target-sized slot
+3. **Victim allocation** — place the vulnerable object at the exact spot
+4. **Adjacent placement** — place an attacker-controlled object in the neighboring slot
+5. **Trigger primitive** — fire the UAF / overflow / double-free
+6. **Corruption** — overwrite metadata / vtable / function pointer
+7. **Arbitrary R/W or RIP control** — read/write anywhere or hijack control flow
+
+### 3.1 The four core building blocks
+
+1. **Massage** — mass-allocate same-size objects to drain the freelist and force a fresh slab/region/zone
+2. **Punch hole** — free exactly the intended slot so the next allocation lands there
+3. **Pin victim** — control timing and size so the vulnerable object falls into the hole
+4. **Place attacker chunk adjacent** — put attacker-controlled, payload-ready data in the neighboring slot
+
+<HeapStateEvolution locale="en" />
+
+## 4. Heap Spraying vs Heap Feng Shui
+
+| | **Heap Spraying** | **Heap Feng Shui** |
+| --- | --- | --- |
+| **Goal** | Paint shellcode/ROP gadgets across a wide region | Place a specific object in a specific slot exactly |
+| **Precision** | Low (probabilistic, guess the address) | Very high (deterministic, per slot) |
+| **Use** | Stabilize the jump-target address | Convert a corruption primitive into code execution |
+| **Typical tooling** | NOP sled + repeated shellcode | Size-class matching + free-pattern control |
+
+> Real exploits usually **combine** the two — feng shui builds the corruption, then a spray stabilizes the RIP jump target.
+
+<SprayVsFengShui locale="en" />
+
+## 5. Allocators by platform
+
+<AllocatorStack locale="en" />
+
+### 5.1 At a glance: Android vs iOS
+
+| | **Android (AOSP)** | **iOS (Darwin / XNU)** |
+| --- | --- | --- |
+| **Userspace allocator** | Scudo (Android 11+) — bionic libc | libmalloc — nano / tiny / small / large zones |
+| **Kernel allocator** | Linux SLUB (`kmalloc-*`) | XNU `zalloc` / `kalloc` (zone-based) |
+| **Kernel object isolation** | General caches + some dedicated caches (`SLAB_ACCOUNT`, `kvmalloc`) | `kalloc_type` (iOS 15+, randomized bucketed type isolation) |
+| **Freelist protection** | `CONFIG_SLAB_FREELIST_HARDENED` (XOR), `CONFIG_SLAB_FREELIST_RANDOM` | Zone freelist uses PAC-signed pointers (arm64e), zone secret cookie |
+| **Memory tagging** | **MTE** (ARMv8.5+, Pixel 8 onward — per-app/process opt-in, config-dependent) | **PAC** (arm64e, A12+) + **kASLR** · zone redzone |
+| **CFI** | LLVM CFI (kernel + userspace) | PAC-based CFI (signed function pointers, return addresses) |
+| **Page-level protection** | SLAB_VIRTUAL (experimental), pkey, eBPF lockdown | PPL (Page Protection Layer) → SPTM/TXM (A15+) — page tables guarded by a separate monitor |
+| **Typical sandbox-escape targets** | system_server, mediaserver, binder, GPU driver | launchd, MIG servers, IOKit user clients, AppleAVD/IOMobileFrameBuffer |
+| **Typical spray primitives** | `msg_msg`, `pipe_buffer`, `sk_buff`, Binder transaction buffer | `mach_msg` OOL descriptors, `OSData`, `IOSurface`, ipc_kmsg |
+
+### 5.2 Android Scudo (userspace)
+
+From Android 11, the default userspace allocator changed to **Scudo**.
+
+- **Primary allocator**: region-based, using a size-class map that varies by version/config (on Android 14, the WOOT '24 analysis lists primary class IDs 1–32 — "exactly 16" is version-dependent). Each region holds a LIFO freelist.
+- **Secondary allocator**: large allocations (64 KB+ by default) get their own guard-page-wrapped mmap region.
+- **Chunk header**: header integrity is verified with a CRC32-based checksum incorporating a global secret/cookie — abort immediately on corruption.
+- **Quarantine**: freed chunks are briefly quarantined to block immediate UAF reuse.
+- **MTE integration**: on tag-enabled devices, a tag mismatch raises SIGSEGV.
+
+> **WOOT '24 bypass summary**
+>
+> **Technique 1** — abuse Scudo's internal cache mechanism to steer a chunk near an arbitrary address (since patched).
+>
+> **Technique 2** — leverage the secondary allocator's large-chunk handling — a structural issue, hard to patch.
+
+### 5.3 Linux SLUB (Android kernel)
+
+The Android kernel uses Linux SLUB.
+
+- General allocations go to `kmalloc-*` caches (8 B – 8 KB, powers of two plus the 96 B/192 B exceptions; recently `kmalloc-cg-*` is split out).
+- Only objects in the same size-class cache sit adjacent → the key is finding a **useful kernel object of the same size** as the target.
+- A three-level structure: **per-CPU active slab + partial list + node partial**.
+- **`CONFIG_SLAB_FREELIST_HARDENED`** — obfuscates freelist pointers as `ptr XOR random XOR &ptr`.
+- **`CONFIG_SLAB_FREELIST_RANDOM`** — randomizes slot order within a slab (once, at slab creation).
+- **`CONFIG_RANDOM_KMALLOC_CACHES`** — hash-picks one of 16 sibling caches per size (Linux 6.6+, **optional** — may be off on GKI/specific devices).
+- **`SLAB_VIRTUAL`** (experimental) — isolates slab pages into a virtual-address-only pool to block cross-cache reuse.
+
+### 5.4 iOS libmalloc (userspace)
+
+The default userspace allocator on iOS/macOS.
+
+- **Nanozone**: dedicated to tiny allocations ≤256 B. 16 B granularity, per-CPU magazine structure.
+- **Scalable zone (tiny/small/large)**:
+  - *tiny*: ≤1 KB, 16 B quantization
+  - *small*: ≤15 KB (or 32 KB on 16 K pages), 512 B quantization
+  - *large*: above that, direct vm_allocate
+- **Pointer Authentication (arm64e)**: zone freelist pointers are PAC-signed with the IB key; forgery faults.
+- **Magazine secret / cookie**: XOR protection on chunk metadata.
+- **Guard malloc / libgmalloc**: a debugging mode that isolates every allocation to a page (disabled in production).
+
+### 5.5 XNU zalloc / kalloc_type (iOS kernel)
+
+The iOS kernel heap is structured differently from SLUB, so the feng shui strategy differs too.
+
+- **Zone**: a free list pooling allocations of the same element size and the same "purpose." Hundreds of named zones exist (`kalloc.*`, `ipc.ports`, `OSData`, …).
+- **kalloc heap separation (iOS 14+)**: purpose-specific heaps like `KHEAP_DEFAULT`, `KHEAP_DATA_BUFFERS`, `KHEAP_KEXT` keep data and pointers out of the same zone.
+- **kalloc_type (iOS 15+, A12 and up)**: *bucketed type isolation* that places type signatures into **randomized buckets**. Multiple types can share a bucket, but it sharply shrinks the pool of UAF realloc candidates (types that could land in the same slot), making type-confusion exploitation much harder — it does *not* hard-block *all* type confusion.
+- **Zone require / zone_id check**: verifies zone identity on free.
+- **Zone GC**: reclaims empty pages, making cross-zone reuse harder.
+- **PPL → SPTM/TXM (A15+)**: a separate monitor validates page-table entries themselves, so an R/W gadget can't patch kernel text.
+- **Memory Integrity Enforcement (MIE) · Enhanced MTE (A19/M5+, 2025)**: always-on EMTE that blocks memory-safety violations in hardware — the newest defense, breaking feng shui's premise of "silent corruption."
+
+> **Android SLUB vs iOS zalloc in one line**
+>
+> SLUB is "everything in a size class goes into one pool → a game of finding a useful same-size object." iOS, post-`kalloc_type`, is "same-size objects in different type buckets rarely mix (probabilistic, since bucketing is randomized) → a game of finding what's useful within the same bucket."
+
+<CacheIsolationModel locale="en" />
+
+## 6. A catalog of useful kernel/IPC objects
+
+Exploit reliability comes down to "what object can you place in the adjacent slot at the moment of corruption."
+
+### Android (Linux SLUB)
+
+| Object | Size / cache | Why it's useful |
+| --- | --- | --- |
+| `msg_msg` | kmalloc-64 ~ kmalloc-4k (size controlled via msgsnd) | Both size and contents are user-controlled; easy to turn into an OOB read/write primitive |
+| `pipe_buffer` | kmalloc-1k (in groups of 16) | `pipe_buf_operations` function pointer → RIP control (Dirty Pipe family) |
+| `sk_buff` (`skb->data`) | kmalloc-512 / 1k / 2k / 4k (traffic size) | Arbitrary size/content spray, remotely triggerable over the network |
+| `tty_struct` | kmalloc-1k | `tty_operations` function pointer, often used for info leaks |
+| `shm_file_data`, `seq_operations` | kmalloc-32 / 64 | Function pointers in small caches |
+| Binder transaction buffer | Arbitrary size (per-process mmap region) | Android-specific, shares a cache with system_server |
+
+### iOS (XNU zalloc)
+
+| Object | Zone | Why it's useful |
+| --- | --- | --- |
+| `ipc_kmsg` | `ipc.kmsgs` | Size/content spray via mach_msg, pointer spray via OOL descriptors |
+| OOL ports array | `ipc.ports` | Arbitrary-size send-right arrays — used to forge fake ports |
+| `OSData` / `OSString` | `kalloc.data.*` (KHEAP_DATA_BUFFERS) | Spray directly from userland via an IOKit user client, full content control |
+| `IOSurface` properties | `kalloc.*` (various sizes) | set/get from userland via IOSurfaceRoot → the classic R/W-primitive conversion |
+| Mach voucher | `ipc.vouchers` | Powerful when refcount manipulation is combined with a UAF |
+| `vm_map_entry` | `VM map entries` | VM-subsystem corruption → hijack page mappings |
+
+## 7. Cross-cache / cross-zone attacks
+
+When there's no useful object you can place in the same cache/zone, **recycle the slab/zone page itself into a different cache**.
+
+<CrossCacheFlow locale="en" />
+
+- **Android**: to target a victim trapped in `kmalloc-cg-*` or a dedicated cache, free all the slab pages in that cache so they return to the buddy allocator, then induce another cache (e.g. `msg_msg`) to grab those pages.
+  - Key tools: racing `pcpu_alloc`, `kvfree`, `__free_pages_ok`.
+  - Defenses: `SLAB_VIRTUAL`, `kvmalloc` separation, page tagging.
+- **iOS**: since `kalloc_type`, only the same type tends to share a zone, so cross-zone is harder. Instead, "zone-level feng shui" research uses **zone garbage collection** to get a page reassigned to a different zone.
+  - PAC and SPTM additionally block cross-zone fake-pointer attacks.
+
+## 8. Real-world cases
+
+<details>
+<summary><strong>CVE-2023-20938 — Android Binder UAF → Root</strong></summary>
+
+Google Android Offensive Security exploited a Binder UAF with SLUB feng shui to gain **root from an untrusted app**.
+
+- Affected GKI kernels 5.4 / 5.10. Patched in the 2023-02 / 2023-07 Security Bulletins.
+- Core: extend a `binder_node` UAF (`kmalloc-128`) via `sendmsg` spray and **cross-cache** reuse into `eventpoll` (`epitem`) objects (per the Google AndroidOffSec write-up).
+
+</details>
+
+<details>
+<summary><strong>Drammer — Rowhammer + Flip Feng Shui → Mobile Root</strong></summary>
+
+Rowhammer hardware bit flips + page-placement control to get **root on Android from an unprivileged app**.
+
+- Deterministic root with no software vulnerability — just a DRAM fault.
+- Works without memory deduplication — the result of using feng shui to secure the slot a PTE will land in within the page pool.
+
+</details>
+
+<details>
+<summary><strong>CVE-2023-32434 — iOS kernel integer overflow (Operation Triangulation)</strong></summary>
+
+The kernel-LPE stage of Kaspersky's disclosed "Operation Triangulation" chain. An integer overflow in XNU (the `mach_make_memory_entry` / `vm_map` family) yields **physical-memory R/W**, and a separate **CVE-2023-38606** (undocumented MMIO registers) bypasses the hardware memory protection (PPL).
+
+- Patched in iOS 15.7.7 and 16.5.1.
+- Significance: shows that even under strong mitigations like PAC and PPL, a memory-safety bug can still drive a full exploit chain.
+
+</details>
+
+<details>
+<summary><strong>CVE-2021-30883 — IOMobileFrameBuffer (the LPE after FORCEDENTRY)</strong></summary>
+
+An IOMobileFrameBuffer heap overflow. Spray `IOSurface` properties into the adjacent zone to overwrite a function-pointer region and gain RIP control.
+
+- Used as an in-the-wild 0-day. Patched in iOS 15.0.2.
+
+</details>
+
+## 9. Modern defenses, organized
+
+<DefenseCoverage locale="en" />
+
+| Defense | Android | iOS | Effect on feng shui |
+| --- | --- | --- | --- |
+| Freelist obfuscation | SLAB_FREELIST_HARDENED | PAC-signed freelist (arm64e) | Blocks injecting a fake free chunk |
+| Slot-order randomization | SLAB_FREELIST_RANDOM | zone slot randomization | Adjacency gets unpredictable — compensated by spray volume |
+| Cache randomization | RANDOM_KMALLOC_CACHES (6.6+ optional) | kalloc_type (randomized bucket) | Probabilistically shrinks same-size matching candidates |
+| Memory tagging / authentication | **MTE** (HW tag) | **PAC** (HW signed pointer) | Detects the UAF/overflow itself immediately (probabilistic/deterministic) |
+| Page-permission monitor | SLAB_VIRTUAL (experimental), pkey | **PPL → SPTM/TXM** | An R/W primitive can't patch kernel text |
+| CFI | LLVM CFI | PAC-CFI | Can't make an arbitrary jump by overwriting a vtable/fn ptr |
+| Quarantine / GC | Scudo quarantine | zone gc + zone require | Blocks immediate UAF reuse, forces a wider race window |
+
+## 10. Automation / research tooling
+
+- **Maze (USENIX Security '21)** — symbolic-execution-based automatic heap-layout synthesis. Input an exploit scenario → output an alloc/free sequence.
+- **SLUBStick (USENIX Security '24)** — an automation framework for Linux SLUB cross-cache attacks.
+- **Syzkaller + KASAN** — discover trigger sequences + track heap state.
+- **kasld / kbase finder** — automate KASLR-bypass info leaks.
+- **On iOS: KTRR/SPTM bypass research, panic-log diffing** — few public tools, so writing your own PoC is the norm.
+- **MTE-aware fuzzing (HWASAN, scudo_standalone)** — use tag mismatches as a corner case.
+
+## 11. References
+
+### Foundations / history
+
+- [Heap Feng Shui in JavaScript (Black Hat 2007, Alexander Sotirov)](https://blackhat.com/presentations/bh-usa-07/Sotirov/Whitepaper/bh-usa-07-sotirov-WP.pdf)
+- [Pool Feng Shui — Windows kernel (Chen, 2010)](https://www.blackhat.com/presentations/bh-dc-10/Mandt_Tarjei/BlackHat-DC-2010-Mandt-kernelpool-wp.pdf)
+- [Maze: Towards Automated Heap Feng Shui (USENIX Security '21)](https://www.usenix.org/system/files/sec21-wang-yan.pdf)
+
+### Android / Linux SLUB
+
+- [Linux kernel heap feng shui in 2022 (duasynt)](https://duasynt.com/blog/linux-kernel-heap-feng-shui-2022)
+- [Exploiting Android's Hardened Memory Allocator (WOOT '24)](https://www.usenix.org/system/files/woot24-mao.pdf)
+- [Attacking Android Binder: CVE-2023-20938 (Google Android Offensive Security)](https://androidoffsec.withgoogle.com/posts/attacking-android-binder-analysis-and-exploitation-of-cve-2023-20938/)
+- [SLUBStick (USENIX Security '24)](https://www.usenix.org/conference/usenixsecurity24/presentation/maar)
+- [Drammer: Flip Feng Shui Goes Mobile (VUSec)](https://www.vusec.net/projects/drammer/)
+
+### iOS / XNU
+
+- [Attacking the XNU Kernel in El Capitan (Mandt, BH EU 2015)](https://www.blackhat.com/docs/eu-15/materials/eu-15-Mandt-Attacking-The-XNU-Kernel-In-El-Capitan.pdf)
+- [iOS kernel heap revisited (Project Zero)](https://googleprojectzero.blogspot.com/2020/07/how-to-unc0ver-0day-in-7-days.html)
+- [Towards the next generation of XNU memory safety — kalloc_type (Apple Security)](https://security.apple.com/blog/towards-the-next-generation-of-xnu-memory-safety/)
+- [Operation Triangulation: CVE-2023-32434 deep dive (Kaspersky SAS '23)](https://securelist.com/operation-triangulation-the-last-hardware-mystery/111669/)
