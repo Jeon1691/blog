@@ -30,7 +30,7 @@ import { CostScaling } from "@/components/diagrams/CostScaling";
 | **CloudFront** | HTTPS, 압축, 보안 헤더, 글로벌 CDN |
 | **ACM** | TLS 인증서 (CloudFront용은 us-east-1 필수) |
 | **Route 53** | DNS, apex(루트 도메인) alias |
-| **GitHub Actions** | OIDC 기반 무키 배포 |
+| **GitHub Actions** | OIDC 기반 keyless 배포 |
 
 방문자 요청은 DNS → CloudFront 엣지 → OAC 서명을 거쳐 **비공개 S3**에 도달한다. 조회수 같은 동적 요소만 별도의 Cloudflare Worker로 분리했다. (Workers/KV 무료 한도는 10만 req/day·KV write 1천/day로, 소규모 블로그엔 충분하지만 고트래픽에서 PV마다 조회수 POST를 찍으면 한도·비용을 고려해야 한다.)
 
@@ -50,7 +50,7 @@ import { CostScaling } from "@/components/diagrams/CostScaling";
 
 여기서 두 가지가 핵심이다.
 
-- **무키(keyless) 배포.** 장기 보관용 AWS 액세스 키를 GitHub Secrets에 넣지 않는다. 대신 GitHub의 OIDC 토큰으로 `AssumeRoleWithWebIdentity`를 호출해 매 실행마다 만료되는 단기 자격증명을 받는다. 키 유출 위험 자체가 사라진다.
+- **Keyless 배포.** 장기 보관용 AWS 액세스 키를 GitHub Secrets에 넣지 않는다. 대신 GitHub의 OIDC 토큰으로 `AssumeRoleWithWebIdentity`를 호출해 매 실행마다 만료되는 단기 자격증명을 받는다. 키 유출 위험 자체가 사라진다.
 - **2단계 캐시 정책.** 해시가 박힌 `_next/` 자산은 `immutable`로 1년 캐시하고, HTML 등 나머지는 `max-age=0`으로 매번 재검증한다. 새 글은 즉시 반영되면서도 정적 자산은 엣지에서 최대한 오래 산다.
 
 ## 비용 분석

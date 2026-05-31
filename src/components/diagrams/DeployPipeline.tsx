@@ -7,11 +7,11 @@ type Stage = { n: string; title: string; body: string; tag?: string };
 const STRINGS = {
   ko: {
     caption:
-      "Fig 2. 배포 파이프라인 — git push 한 번이 OIDC 무키 인증 → 빌드 → S3 동기화 → 캐시 무효화까지 자동으로 이어진다.",
+      "Fig 2. 배포 파이프라인 — git push 한 번이 OIDC keyless 인증 → 빌드 → S3 동기화 → 캐시 무효화까지 자동으로 이어진다.",
     note: "장기 보관 액세스 키가 GitHub에 존재하지 않는다 — OIDC로 매 실행마다 단기 STS 자격증명을 발급받아 역할을 위임받는다.",
     stages: [
       { n: "1", title: "git push → main", body: "GitHub Actions deploy 워크플로 트리거" },
-      { n: "2", title: "OIDC 인증", body: "GitHub OIDC 토큰 → STS AssumeRoleWithWebIdentity → 단기 자격증명", tag: "무키 (no secrets)" },
+      { n: "2", title: "OIDC 인증", body: "GitHub OIDC 토큰 → STS AssumeRoleWithWebIdentity → 단기 자격증명", tag: "keyless (no secrets)" },
       { n: "3", title: "빌드", body: "pnpm install --frozen-lockfile → next export(out/) + Pagefind 색인" },
       { n: "4", title: "S3 동기화", body: "_next/ 는 immutable(1년 캐시), 나머지는 max-age=0 + --delete", tag: "2단계 캐시 정책" },
       { n: "5", title: "CloudFront 무효화", body: "create-invalidation --paths \"/*\" 로 엣지 캐시 갱신" },
