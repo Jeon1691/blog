@@ -15,7 +15,7 @@ const STRINGS = {
   ko: {
     caption:
       "Fig 7. Cross-cache 공격 — 같은 캐시 안에 유용한 객체가 없을 때, slab page 자체를 buddy allocator를 거쳐 다른 캐시로 재활용시킨다.",
-    note: "재활용된 page는 흔히 page table(PTE)로 다시 쓰여 DirtyPagetable·Dirty Pagedirectory(CVE-2024-1086)로 이어진다 — cross-cache의 사실상 표준 종착지. 방어: SLAB_VIRTUAL(가상 풀 격리), kvmalloc 분리, page tagging. iOS는 kalloc_type + zone GC + PAC/SPTM으로 cross-zone을 훨씬 어렵게 만든다.",
+    note: "재활용된 page를 page table(PTE)로 다시 써 DirtyPagetable·Dirty Pagedirectory(CVE-2024-1086)로 잇는 경로가 강력하다(단 page-level 재활용은 상대적으로 드물고 조건이 필요). 방어: SLAB_VIRTUAL(가상 풀 격리), kvmalloc 분리, page tagging. iOS는 kalloc_type + zone GC + PAC/SPTM으로 cross-zone을 훨씬 어렵게 만든다.",
     ownerLabels: {
       victimCache: "victim 전용 캐시",
       buddy: "buddy allocator (page pool)",
@@ -31,7 +31,7 @@ const STRINGS = {
   en: {
     caption:
       "Fig 7. Cross-cache attack — when no useful object shares the victim's cache, recycle the slab page itself through the buddy allocator into another cache.",
-    note: "The recycled page is often reused as a page table (PTE), leading to DirtyPagetable / Dirty Pagedirectory (CVE-2024-1086) — the de facto endpoint of cross-cache. Defenses: SLAB_VIRTUAL (virtual-pool isolation), kvmalloc split, page tagging. iOS makes cross-zone far harder with kalloc_type + zone GC + PAC/SPTM.",
+    note: "Reusing the recycled page as a page table (PTE) — DirtyPagetable / Dirty Pagedirectory (CVE-2024-1086) — is a powerful path (though page-level reuse is relatively rare and condition-dependent). Defenses: SLAB_VIRTUAL (virtual-pool isolation), kvmalloc split, page tagging. iOS makes cross-zone far harder with kalloc_type + zone GC + PAC/SPTM.",
     ownerLabels: {
       victimCache: "victim's dedicated cache",
       buddy: "buddy allocator (page pool)",

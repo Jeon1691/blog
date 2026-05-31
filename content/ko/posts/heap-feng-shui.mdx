@@ -31,7 +31,7 @@ import { DefenseCoverage } from "@/components/diagrams/DefenseCoverage";
 
 | 연도 | 이벤트 | 의의 |
 | --- | --- | --- |
-| 2001 | Solar Designer — return-to-libc | 스택 corruption → 제어 흐름 탈취 시초 |
+| 1997 | Solar Designer — return-into-libc | 스택 corruption → 제어 흐름 탈취 시초 |
 | 2007 | Sotirov — Heap Feng Shui in JavaScript | IE 브라우저 힙 결정화 명명, heaplib.js 공개 |
 | 2010 | Chen — Pool Feng Shui (Windows kernel) | 커널 힙으로 개념 확장 |
 | 2013 | Tarjei Mandt — iOS kernel heap feng shui | iOS kalloc / zone allocator 결정화 연구 시초 |
@@ -49,7 +49,7 @@ import { DefenseCoverage } from "@/components/diagrams/DefenseCoverage";
 
 **최근 동향 (2024~2026)** — 세 갈래로 압축된다.
 
-1. **Page-level feng shui** — slab/zone을 넘어, buddy allocator로 반환된 page를 **page table(PTE)** 로 재활용하는 DirtyPagetable·Dirty Pagedirectory(CVE-2024-1086) 계열이 cross-cache의 사실상 표준 종착지가 됐다. 임의 PTE 조작 → 물리 메모리 R/W → 커널 패치로 직결된다.
+1. **Page-level feng shui** — slab/zone을 넘어, buddy allocator로 반환된 page를 **page table(PTE)** 로 재활용하는 DirtyPagetable·Dirty Pagedirectory(CVE-2024-1086) 계열이 강력한 최신 경로로 자리 잡았다(임의 PTE 조작 → 물리 메모리 R/W → 커널 패치). 다만 CROSS-X 분석에 따르면 page-level 재활용은 상대적으로 드물고 추가 권한·조건이 필요할 수 있어, *모든* cross-cache의 종착지는 아니다.
 2. **Cross-cache 일반화** — SLUBStick(성공률 99%+)과 CROSS-X(ACM CCS '25)가 과거 ~40%에 그치던 cross-cache 신뢰성을 실전 수준으로 끌어올렸다.
 3. **하드웨어 태깅 군비경쟁** — Apple **MIE**(2025, iPhone 17/A19)가 EMTE를 커널+70여 유저 프로세스에 상시 적용해 펭수이의 전제인 '조용한 corruption'을 정면으로 노린다. 그러나 같은 해 Mali GPU의 **CVE-2025-0072**가 MTE를 우회한 사례처럼, 방어는 비용을 올릴 뿐 공방을 종결시키지는 못한다.
 
@@ -111,7 +111,7 @@ import { DefenseCoverage } from "@/components/diagrams/DefenseCoverage";
 
 Android 11부터 기본 유저스페이스 할당자가 **Scudo**로 변경되었다.
 
-- **Primary allocator**: 버전/설정별 size class map을 쓰는 region 기반 (Android 14 기준 WOOT '24 분석은 primary class ID 1~32를 제시 — "정확히 16개"는 버전 의존적). region 내부는 LIFO freelist.
+- **Primary allocator**: 버전/설정별 size class map을 쓰는 region 기반 (Android 14 기준 WOOT '24 분석은 primary class ID 1~32를 제시 — "정확히 16개"는 버전 의존적). region 내부 freelist는 per-thread cache(TransferBatch)와 슬롯 randomization을 거치므로 단순 LIFO보다 복잡하다.
 - **Secondary allocator**: 큰 할당(기본 64KB↑)은 guard page로 둘러싸인 mmap 영역에 단독 배치.
 - **Chunk header**: global secret/cookie를 포함한 CRC32 기반 checksum으로 header integrity를 검증 — 손상 감지 시 즉시 abort.
 - **Quarantine**: free된 chunk를 잠시 격리해 즉각적 UAF 재사용 차단.
@@ -154,7 +154,7 @@ iOS 커널 힙은 SLUB과 구조가 다르며, 펭수이 전략도 다르다.
 
 - **Zone**: 같은 element size + 같은 "용도"의 할당을 모은 free list. `kalloc.*`, `ipc.ports`, `OSData` 등 수백 개의 named zone이 존재.
 - **kalloc heap 분리 (iOS 14+)**: `KHEAP_DEFAULT`, `KHEAP_DATA_BUFFERS`, `KHEAP_KEXT` 등 용도별 heap 격리 → 데이터/포인터를 같은 zone에 못 섞음.
-- **kalloc_type (iOS 15+, A12 이상)**: 타입 시그니처를 **randomized bucket**에 배치하는 *bucketed type isolation*. 같은 bucket에 여러 타입이 섞일 수 있지만, UAF 재할당 후보(같은 슬롯을 노릴 만한 타입)를 크게 줄여 type confusion 익스플로잇을 어렵게 만든다 — *모든* type confusion을 원천 차단하는 것은 아니다.
+- **kalloc_type (iOS 15+)**: 타입 시그니처를 **randomized bucket**에 배치하는 *bucketed type isolation*. 같은 bucket에 여러 타입이 섞일 수 있지만, UAF 재할당 후보(같은 슬롯을 노릴 만한 타입)를 크게 줄여 type confusion 익스플로잇을 어렵게 만든다 — *모든* type confusion을 원천 차단하는 것은 아니다.
 - **Zone require / zone_id check**: free 시 zone 일치 여부 검증.
 - **Zone gc**: 비어 있는 page를 회수해 cross-zone reuse를 어렵게 함.
 - **PPL → SPTM/TXM (A15+)**: 페이지 테이블 entry 자체를 별도 monitor가 검증해 R/W gadget으로 kernel text 패치 불가.

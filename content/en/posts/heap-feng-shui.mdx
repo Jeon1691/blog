@@ -31,7 +31,7 @@ Heap feng shui **tames** that non-determinism with a crafted sequence of allocat
 
 | Year | Event | Significance |
 | --- | --- | --- |
-| 2001 | Solar Designer — return-to-libc | First control-flow hijack from stack corruption |
+| 1997 | Solar Designer — return-into-libc | First control-flow hijack from stack corruption |
 | 2007 | Sotirov — Heap Feng Shui in JavaScript | Named IE browser heap shaping, released heaplib.js |
 | 2010 | Chen — Pool Feng Shui (Windows kernel) | Extended the idea to the kernel heap |
 | 2013 | Tarjei Mandt — iOS kernel heap feng shui | First study of shaping the iOS kalloc / zone allocator |
@@ -49,7 +49,7 @@ Heap feng shui **tames** that non-determinism with a crafted sequence of allocat
 
 **Recent direction (2024–2026)** — it boils down to three threads.
 
-1. **Page-level feng shui** — beyond slab/zone, the DirtyPagetable / Dirty Pagedirectory (CVE-2024-1086) family reuses a buddy-returned page as a **page table (PTE)**, which has become the de facto endpoint of cross-cache. Arbitrary PTE manipulation → physical-memory R/W → straight to kernel patching.
+1. **Page-level feng shui** — beyond slab/zone, the DirtyPagetable / Dirty Pagedirectory (CVE-2024-1086) family reuses a buddy-returned page as a **page table (PTE)** (arbitrary PTE manipulation → physical-memory R/W → kernel patching), now a powerful go-to path. That said, CROSS-X notes page-level reuse is relatively rare and may require extra privileges/conditions — it isn't the endpoint of *every* cross-cache.
 2. **Cross-cache generalization** — SLUBStick (99%+ success) and CROSS-X (ACM CCS '25) pushed cross-cache reliability from the old ~40% up to production level.
 3. **The hardware-tagging arms race** — Apple **MIE** (2025, iPhone 17/A19) applies EMTE always-on across the kernel + 70+ userland processes, attacking feng shui's "silent corruption" premise head-on. Yet the same year's Mali-GPU **CVE-2025-0072** bypassed MTE — defenses raise the cost but don't end the game.
 
@@ -111,7 +111,7 @@ The overall flow runs in seven stages.
 
 From Android 11, the default userspace allocator changed to **Scudo**.
 
-- **Primary allocator**: region-based, using a size-class map that varies by version/config (on Android 14, the WOOT '24 analysis lists primary class IDs 1–32 — "exactly 16" is version-dependent). Each region holds a LIFO freelist.
+- **Primary allocator**: region-based, using a size-class map that varies by version/config (on Android 14, the WOOT '24 analysis lists primary class IDs 1–32 — "exactly 16" is version-dependent). Each region's freelist runs through per-thread caches (TransferBatch) and slot randomization, so it's more involved than a plain LIFO.
 - **Secondary allocator**: large allocations (64 KB+ by default) get their own guard-page-wrapped mmap region.
 - **Chunk header**: header integrity is verified with a CRC32-based checksum incorporating a global secret/cookie — abort immediately on corruption.
 - **Quarantine**: freed chunks are briefly quarantined to block immediate UAF reuse.
@@ -154,7 +154,7 @@ The iOS kernel heap is structured differently from SLUB, so the feng shui strate
 
 - **Zone**: a free list pooling allocations of the same element size and the same "purpose." Hundreds of named zones exist (`kalloc.*`, `ipc.ports`, `OSData`, …).
 - **kalloc heap separation (iOS 14+)**: purpose-specific heaps like `KHEAP_DEFAULT`, `KHEAP_DATA_BUFFERS`, `KHEAP_KEXT` keep data and pointers out of the same zone.
-- **kalloc_type (iOS 15+, A12 and up)**: *bucketed type isolation* that places type signatures into **randomized buckets**. Multiple types can share a bucket, but it sharply shrinks the pool of UAF realloc candidates (types that could land in the same slot), making type-confusion exploitation much harder — it does *not* hard-block *all* type confusion.
+- **kalloc_type (iOS 15+)**: *bucketed type isolation* that places type signatures into **randomized buckets**. Multiple types can share a bucket, but it sharply shrinks the pool of UAF realloc candidates (types that could land in the same slot), making type-confusion exploitation much harder — it does *not* hard-block *all* type confusion.
 - **Zone require / zone_id check**: verifies zone identity on free.
 - **Zone GC**: reclaims empty pages, making cross-zone reuse harder.
 - **PPL → SPTM/TXM (A15+)**: a separate monitor validates page-table entries themselves, so an R/W gadget can't patch kernel text.

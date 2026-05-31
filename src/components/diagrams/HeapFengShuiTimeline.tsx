@@ -26,8 +26,8 @@ const STRINGS = {
       { year: "2023", title: "CVE-2023-20938 / -32434", body: "Android Binder UAF · iOS Triangulation — 양 진영 실전 펭수이.", era: "mobile" },
       { year: "2024", title: "Scudo 우회 2종 (WOOT)", body: "hardened allocator도 구조적 약점이 있음을 증명.", era: "automation" },
       { year: "2024", title: "Dirty Pagedirectory", body: "CVE-2024-1086(nf_tables) — buddy로 반환된 page를 PTE로 재활용하는 page-level feng shui.", era: "kernel" },
-      { year: "2025", title: "CROSS-X (CCS)", body: "cross-cache를 일반화·고신뢰화 (성공률 99%+). SLUBStick 계보.", era: "automation" },
-      { year: "2025", title: "Apple MIE (EMTE)", body: "iPhone 17/A19 — 커널+70여 유저 프로세스 상시 메모리 태깅. 단 CVE-2025-0072로 MTE 우회 사례도 등장.", era: "mitigation" },
+      { year: "2025", title: "CROSS-X (CCS)", body: "cross-cache를 일반화·고신뢰화 (대상 객체 대부분 99%+, pipe_inode_info는 94%). SLUBStick 계보.", era: "automation" },
+      { year: "2025", title: "Apple MIE (EMTE)", body: "iPhone 17/A19 — 커널+70여 유저 프로세스에 EMTE 상시 적용. (Android MTE는 CVE-2025-0072로 우회 사례 — 별개 플랫폼)", era: "mitigation" },
     ] as Event[],
   },
   en: {
@@ -44,8 +44,8 @@ const STRINGS = {
       { year: "2023", title: "CVE-2023-20938 / -32434", body: "Android Binder UAF · iOS Triangulation — feng shui in the wild on both platforms.", era: "mobile" },
       { year: "2024", title: "Two Scudo bypasses (WOOT)", body: "Proved even a hardened allocator has structural weaknesses.", era: "automation" },
       { year: "2024", title: "Dirty Pagedirectory", body: "CVE-2024-1086 (nf_tables) — reuse a buddy-returned page as a PTE: page-level feng shui.", era: "kernel" },
-      { year: "2025", title: "CROSS-X (CCS)", body: "Generalized, high-reliability cross-cache (99%+ success). The SLUBStick lineage.", era: "automation" },
-      { year: "2025", title: "Apple MIE (EMTE)", body: "iPhone 17/A19 — always-on memory tagging across the kernel + 70+ userland processes. Yet CVE-2025-0072 already bypassed MTE.", era: "mitigation" },
+      { year: "2025", title: "CROSS-X (CCS)", body: "Generalized, reliable cross-cache (mostly 99%+, 94% for pipe_inode_info). The SLUBStick lineage.", era: "automation" },
+      { year: "2025", title: "Apple MIE (EMTE)", body: "iPhone 17/A19 — always-on EMTE across the kernel + 70+ userland processes. (Android MTE was bypassed by CVE-2025-0072 — a separate platform.)", era: "mitigation" },
     ] as Event[],
   },
 } as const;
