@@ -15,6 +15,15 @@ resource "aws_cloudfront_function" "rewrite" {
       var request = event.request;
       var uri = request.uri;
 
+      // Canonical host: 301 www -> apex so the whole site lives on one host.
+      if (request.headers.host && request.headers.host.value === "www.${var.domain}") {
+        return {
+          statusCode: 301,
+          statusDescription: "Moved Permanently",
+          headers: { location: { value: "https://${var.domain}" + uri } }
+        };
+      }
+
       // Path ends with "/" -> serve index.html
       if (uri.endsWith("/")) {
         request.uri = uri + "index.html";
