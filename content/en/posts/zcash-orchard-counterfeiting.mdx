@@ -1,0 +1,331 @@
+---
+title: The Zcash Orchard Counterfeiting Bug — A 4-Year ZK Circuit Flaw Found with AI
+description: How an under-constrained Orchard circuit — a missing elliptic-curve-multiplication constraint that Taylor Hornby found with Opus 4.8 in 2026 — could mint unlimited counterfeit ZEC, and what is confirmed vs. unprovable from public material.
+date: 2026-06-13
+tags: [security, cryptography, ZK, Zcash, AI]
+---
+
+import { ZecPriceReaction } from "@/components/diagrams/ZecPriceReaction";
+import { OrchardTimeline } from "@/components/diagrams/OrchardTimeline";
+import { TwoCircuitsDiverge } from "@/components/diagrams/TwoCircuitsDiverge";
+import { ZkVerificationFlow } from "@/components/diagrams/ZkVerificationFlow";
+import { ValueBalanceForgery } from "@/components/diagrams/ValueBalanceForgery";
+import { EcAdditionException } from "@/components/diagrams/EcAdditionException";
+import { ExploitFlow } from "@/components/diagrams/ExploitFlow";
+import { ExploitationEvidence } from "@/components/diagrams/ExploitationEvidence";
+import { TurnstileRecovery } from "@/components/diagrams/TurnstileRecovery";
+import { SproutVsOrchard } from "@/components/diagrams/SproutVsOrchard";
+
+> **TL;DR** — In May 2026, security researcher Taylor Hornby used Anthropic's **Opus 4.8** as an assistive tool to find a **counterfeiting vulnerability** that had lain dormant for roughly four years in **Orchard**, Zcash's newest shielded pool. The root cause was an **under-constrained circuit** — a constraint required to verify an elliptic curve multiplication was missing, so even a mathematically false witness could pass verification and mint **unlimited, undetectable counterfeit ZEC**. It was fixed five days after discovery via a soft fork and the NU6.2 hard fork. This piece strictly separates what is *officially confirmed* from what *cannot be settled from public material*.
+
+## 1. What happened — what was found
+
+On 2026-05-29, security engineer Taylor Hornby found a critical counterfeiting vulnerability in the circuit of **Orchard**, Zcash's newest shielded pool. Per Shielded Labs' official statement, the bug was severe enough to mint **unlimited, undetectable counterfeit ZEC** inside Orchard.
+
+Hornby had been doing Zcash protocol security research for Shielded Labs since April 2026, and right after Anthropic's **Opus 4.8** model was released on 2026-05-28 he used it for a focused review of the Orchard circuit. The official statement says Hornby found the bug on 2026-05-29 and immediately reported it privately to the Zcash Open Development Lab (ZODL).
+
+The vulnerability existed **from Orchard's activation in May 2022 until the emergency fix shipped on 2026-06-01** — roughly four years. Shielded Labs assessed prior exploitation as unlikely on several grounds. But this is an *assessment*, not a *proof*. Source: [Shielded Labs official statement](https://forum.zcashcommunity.com/t/the-orchard-counterfeiting-vulnerability-and-next-steps/56015).
+
+The market reacted sharply to the disclosure. Bloomingbit reported ZEC down **31.4% to $409.64** versus 24 hours earlier; CoinDesk reported a roughly **38% plunge**; and Bitquery, aggregating multiple reports, described a **30–50% daily drop**. Source: [Bloomingbit](https://bloomingbit.io/feed/news/113597), [CoinDesk](https://www.coindesk.com/markets/2026/06/05/zcash-plummets-30-as-developer-reveals-a-major-bug-that-went-undetected-for-four-years), [Bitquery](https://bitquery.io/blog/was-zcash-counterfeited-orchard-bug).
+
+<ZecPriceReaction locale="en" />
+
+The whole sequence, from discovery to fix, looks like this.
+
+<OrchardTimeline locale="en" />
+
+## 2. The core vulnerability — the officially confirmed scope
+
+The officially confirmed technical description fits in one sentence: **some element of the Orchard circuit was under-constrained, so an arbitrary false input could be fed into an elliptic curve multiplication and still pass the multiplication check.** Source: [Shielded Labs official statement](https://forum.zcashcommunity.com/t/the-orchard-counterfeiting-vulnerability-and-next-steps/56015).
+
+> **An intuitive analogy — the "five-stamp" checkpoint** — at immigration you must verify all five stamps, but if the inspection rule skips one, anyone who forged exactly that one stamp walks straight through. A *missing constraint* in a ZK circuit is the same. The verifier performs **only the checks written into the circuit**, so any relationship that is not written down (here, part of the elliptic curve multiplication condition) can be forged without being caught.
+
+<TwoCircuitsDiverge locale="en" />
+
+The key word here is **under-constrained**. A ZK circuit verifies that "the witness the prover supplied satisfies certain polynomial constraints." If a required constraint is missing, the prover can supply a value that does not match the real mathematical meaning and still pass verification. This general principle is described as one of the most common high-risk patterns in ZK circuit audits, in halo2, Circom, and beyond.
+
+That said, from public material alone we cannot verify "exactly which two lines of which file were missing," "which witness was manipulated and how," or "what the patch diff looked like." So the code block below is not real Zcash exploit code — it is **concept code that shows how an under-constrained EC multiplication can lead to a soundness failure**.
+
+## 3. The basic ZK circuit model — why a "missing constraint" is dangerous
+
+In a halo2-style circuit, the prover fills advice columns with the secret witness, and the circuit forces a particular polynomial to equal 0 on the rows where a selector is enabled. The verifier never sees the witness itself — it only checks that those constraints hold.
+
+```rust
+// Educational concept — NOT real Orchard code.
+// A simple gate forcing out = a * b on selector-enabled rows.
+meta.create_gate("mul example", |meta| {
+    let s   = meta.query_selector(q_mul);
+    let a   = meta.query_advice(col_a, Rotation::cur());
+    let b   = meta.query_advice(col_b, Rotation::cur());
+    let out = meta.query_advice(col_out, Rotation::cur());
+
+    // s * (a * b - out) == 0
+    vec![s * (a * b - out)]
+});
+```
+
+If the `out = a * b` constraint is dropped from the example above, the prover can put an arbitrary value in `out`. The verifier believes it is "the product," but in reality a non-product value can sit there. This is the basic danger of an under-constrained circuit.
+
+The circuit forces polynomial constraints to evaluate to 0 on selector-enabled rows. The multiplication gate enforces:
+
+$$
+s\cdot(a\cdot b - \mathit{out}) = 0
+$$
+
+The whole circuit can be seen as a set of constraints, and the verifier only checks that all of them are 0.
+
+$$
+\mathcal{C} = \{\, p_k(\mathbf{w}) = 0 \,\}_{k=1}^{m}
+$$
+
+If the $a\cdot b - \mathit{out} = 0$ constraint is missing, a witness exists that satisfies the rest — i.e., a non-product value also passes verification.
+
+$$
+\exists\, \mathbf{w}:\quad \mathit{out} \neq a\cdot b \;\wedge\; \forall k\; p_k(\mathbf{w}) = 0
+$$
+
+<ZkVerificationFlow locale="en" />
+
+## 4. Orchard and value balance — why forgery becomes a supply problem
+
+A Zcash shielded transaction must verify that total value is conserved without revealing the amounts. This is normally handled through value commitments and a value balance: hide the amounts, but verify that the sum relationship between input and output commitments holds.
+
+```text
+Conservation invariant (concept):
+  Σ value_in  ==  Σ value_out  + public_value_balance
+
+Goal:
+  hide the amounts, but force the total to be conserved.
+```
+
+Shielded Labs' statement says the bug "could mint unlimited counterfeit ZEC inside Orchard." That means the circuit accepted some invalid state transition or invalid witness as if it were a valid proof, so the value-conservation invariant could break. From public material alone, however, we cannot pin down which part of the value commitment the real exploit forged, or how. Source: [Shielded Labs official statement](https://forum.zcashcommunity.com/t/the-orchard-counterfeiting-vulnerability-and-next-steps/56015).
+
+Bitquery frames the issue as "a missing constraint that lets a single shielded note be spent repeatedly to duplicate value." This is helpful outside analysis; it points the same direction as the official "unlimited undetectable counterfeit ZEC," but the detailed exploit structure must be kept distinct from the officially verified source. Source: [Bitquery](https://bitquery.io/blog/was-zcash-counterfeited-orchard-bug).
+
+A shielded transaction must hide the amounts while enforcing this value-conservation invariant.
+
+$$
+\sum_{i} v^{\text{in}}_{i} = \sum_{j} v^{\text{out}}_{j} + v_{\text{balance}}
+$$
+
+The amount $v$ is hidden by a Pedersen-style value commitment, where $\mathcal{V},\mathcal{R}$ are independent generators and $r$ is the blinding factor.
+
+$$
+\mathrm{cv} = [v]\,\mathcal{V} + [r]\,\mathcal{R}
+$$
+
+Thanks to the homomorphic property of the commitment, the total sum can be verified from the difference of input and output commitments.
+
+$$
+\sum_i \mathrm{cv}^{\text{in}}_i - \sum_j \mathrm{cv}^{\text{out}}_j = \Big[\textstyle\sum_i v^{\text{in}}_i - \sum_j v^{\text{out}}_j\Big]\mathcal{V} + [\,r_{\Sigma}\,]\,\mathcal{R}
+$$
+
+If the circuit does not sufficiently constrain the relationship between $v$ and $\mathrm{cv}$ (under-constrained), verification can pass even when the net increase is positive. That $\Delta v$ is the amount counterfeited.
+
+$$
+\Delta v = \sum_i v^{\text{in}}_i - \sum_j v^{\text{out}}_j > 0
+$$
+
+<ValueBalanceForgery locale="en" />
+
+## 5. Elliptic curve multiplication — confirmed facts and a concept model
+
+The official write-up says the problem was related to an **elliptic curve multiplication check** — i.e., some multiplication relationship between a curve point and a scalar was not sufficiently enforced in the circuit, and a false input slipped through that gap. That much is confirmed. Source: [Shielded Labs official statement](https://forum.zcashcommunity.com/t/the-orchard-counterfeiting-vulnerability-and-next-steps/56015).
+
+The halo2 Book distinguishes **incomplete addition** from **complete addition** in its elliptic curve addition gadget. Incomplete addition cannot be used directly under certain conditions (e.g., when the two points share an x-coordinate), so depending on which cases the circuit handles, an extra constraint or the complete-addition gadget is required. Source: [halo2 Book — Incomplete and complete addition](https://zcash.github.io/halo2/design/gadgets/ecc/addition.html).
+
+```text
+General addition on a short Weierstrass curve:
+
+P = (x1, y1), Q = (x2, y2)
+λ = (y2 - y1) / (x2 - x1)
+R = P + Q = (x3, y3)
+
+This formula is unsafe to use directly in exception cases like x1 == x2.
+```
+
+So the earlier phrasing "the `x2 - x1 != 0` constraint was missing" is useful as a **possible explanatory model**, but from public material alone we must not assert it as "the exact cause of the real Orchard bug." The safer phrasing is: "some constraint inside the elliptic curve multiplication was insufficient, so a false input passed."
+
+On a short Weierstrass curve, the sum $R=P+Q=(x_3,y_3)$ of two distinct points $P=(x_1,y_1)$, $Q=(x_2,y_2)$ is:
+
+$$
+\begin{aligned}
+\lambda &= \frac{y_2 - y_1}{x_2 - x_1} \\
+x_3 &= \lambda^2 - x_1 - x_2 \\
+y_3 &= \lambda\,(x_1 - x_3) - y_1
+\end{aligned}
+$$
+
+halo2 avoids writing the denominator directly and turns the relationship into polynomial constraints (incomplete addition).
+
+$$
+\begin{aligned}
+(x_3 + x_2 + x_1)(x_2 - x_1)^2 - (y_2 - y_1)^2 &= 0 \\
+(y_3 + y_1)(x_2 - x_1) - (y_2 - y_1)(x_1 - x_3) &= 0
+\end{aligned}
+$$
+
+This formula assumes $x_1 \neq x_2$. If $x_1 = x_2$, the denominator of $\lambda$ becomes 0 and is undefined, so incomplete addition is not safe for arbitrary inputs.
+
+$$
+x_1 = x_2 \;\Rightarrow\; x_2 - x_1 = 0 \;\Rightarrow\; \lambda\ \text{undefined}
+$$
+
+A scalar multiplication $[k]P$ is computed by bit decomposition, and the point operation at every step must be correctly constrained.
+
+$$
+[k]P = \sum_{t=0}^{n-1} k_t\,[\,2^{t}\,]P, \qquad k=\sum_{t=0}^{n-1} k_t 2^{t},\; k_t\in\{0,1\}
+$$
+
+<EcAdditionException locale="en" />
+
+## 6. Concept code — how an under-constrained EC operation can arise
+
+The code below is not real Orchard code. It is educational pseudocode meant to show "what kind of problem can arise if exception cases or auxiliary witnesses are not sufficiently constrained in EC addition/multiplication."
+
+```rust
+// Educational concept — NOT real Zcash/Orchard source.
+// Goal: show that if incomplete addition does not block the exception
+// cases, the witness can gain extra degrees of freedom.
+
+meta.create_gate("ec_add_incomplete_concept", |meta| {
+    let q = meta.query_selector(q_add);
+
+    let xp = meta.query_advice(xp, Rotation::cur());
+    let yp = meta.query_advice(yp, Rotation::cur());
+    let xq = meta.query_advice(xq, Rotation::cur());
+    let yq = meta.query_advice(yq, Rotation::cur());
+    let xr = meta.query_advice(xr, Rotation::cur());
+    let yr = meta.query_advice(yr, Rotation::cur());
+
+    // A simplified form of the halo2 Book's incomplete-addition constraint.
+    // The real halo2 Book avoids the denominator and rewrites it as polynomials.
+    let c1 = (xr.clone() + xq.clone() + xp.clone())
+        * (xp.clone() - xq.clone()) * (xp.clone() - xq.clone())
+        - (yp.clone() - yq.clone()) * (yp.clone() - yq.clone());
+
+    let c2 = (yr.clone() + yq.clone()) * (xp.clone() - xq.clone())
+        - (yp.clone() - yq.clone()) * (xq.clone() - xr.clone());
+
+    // Incomplete addition is not safe for arbitrary inputs.
+    // So a real circuit must also verify which cases enable this gate
+    // and whether the exception cases are handled separately.
+    vec![q.clone() * c1, q * c2]
+});
+```
+
+The point of the code is not "the formula is wrong" but "the circuit must enforce the input domain on which the formula is used." The halo2 Book itself states the incomplete-addition constraint cannot be used for arbitrary inputs, and complete addition handles the various exception cases with extra constraints. Source: [halo2 Book](https://zcash.github.io/halo2/design/gadgets/ecc/addition.html).
+
+## 7. The exploit concept — what is confirmed and what is not
+
+What is confirmed: Hornby, with Opus 4.8's help, wrote a **full exploit** and, when tested in a local regtest environment, it minted **unlimited, undetectable counterfeit ZEC**. Shielded Labs said that running the same tool on mainnet would have minted unlimited counterfeit ZEC in mainnet wallets too. Source: [Shielded Labs official statement](https://forum.zcashcommunity.com/t/the-orchard-counterfeiting-vulnerability-and-next-steps/56015).
+
+But the exploit code itself and the exact witness manipulation cannot be confirmed from public material. So the pseudocode below is not the real exploit — it is a model of the general structure of an under-constrained circuit attack, where "the verifier accepts it as a valid proof while the real semantics break."
+
+```rust
+// Educational pseudocode — NOT a real exploit.
+// The real Orchard vulnerable code / PoC cannot be reconstructed from public material.
+
+fn counterfeit_concept() {
+    // 1. Build a shielded action that looks like valid input.
+    let spend = make_valid_looking_spend();
+
+    // 2. Tamper with a witness region the circuit does not fully constrain.
+    let malicious_witness = craft_false_ec_multiplication_witness();
+
+    // 3. The verifier only checks the constraints, so a missing one lets the proof pass.
+    let proof = prove_with(malicious_witness);
+
+    // 4. Value conservation is broken semantically, yet the vulnerable circuit verifies it.
+    assert!(verify(proof));
+}
+```
+
+The danger of this exploit grows when combined with Zcash's privacy properties. Because amounts inside Orchard are encrypted, a forged note that stays inside Orchard cannot be detected by external analysis.
+
+<ExploitFlow locale="en" />
+
+## 8. Was it actually exploited — "not absent," but "no evidence"
+
+Shielded Labs assessed prior exploitation as unlikely. The reasons: the bug evaded years of review by world-class cryptographers and auditors, Hornby found it via a very deliberate AI-assisted audit, and ZODL and the ecosystem responded quickly right after discovery.
+
+At the same time, Shielded Labs said "users should not rely on our assessment." Given Orchard's privacy and the nature of the bug, whether an exploit happened in the past cannot be settled by cryptography alone. Source: [Shielded Labs official statement](https://forum.zcashcommunity.com/t/the-orchard-counterfeiting-vulnerability-and-next-steps/56015).
+
+Bitquery analyzed chain data and found no sign of large-scale theft. Total supply matches the issuance schedule, the shielded pool did not drain abruptly, and the flow between the Opus 4.8 release and Orchard's deactivation showed nothing abnormal.
+
+But Bitquery also stated that "small or not-yet-cashed-out forgery" cannot be ruled out. In particular, a fake note that stays inside Orchard cannot be found by analysis, and small cash-outs can be buried in normal daily volatility. Source: [Bitquery](https://bitquery.io/blog/was-zcash-counterfeited-orchard-bug).
+
+<ExploitationEvidence locale="en" />
+
+## 9. The response — a soft fork and the NU6.2 hard fork
+
+The official write-up says ZODL coordinated an ecosystem-wide emergency response, completed on 2026-06-02. The vulnerability itself existed until the emergency fix shipped on 2026-06-01. Source: [Shielded Labs official statement](https://forum.zcashcommunity.com/t/the-orchard-counterfeiting-vulnerability-and-next-steps/56015).
+
+Crypto Briefing reported more specifically that a temporary soft fork activated at mainnet block **3,363,426** on 2026-06-02 and disabled Orchard actions, and that the NU6.2 hard fork activated at block **3,364,600** on 2026-06-03 and re-enabled Orchard with the corrected circuit. Source: [Crypto Briefing](https://cryptobriefing.com/zcash-orchard-bug-emergency-upgrade/).
+
+Crypto Briefing, citing the Zcash Foundation, reported there was no exploit evidence, no unauthorized value creation, and no privacy impact during this process. That report should be read alongside Shielded Labs' statement that "the absence of past exploitation cannot be settled cryptographically." Rather than contradicting each other, one says "no observed evidence" and the other is closer to "complete proof is impossible in principle." Source: [Crypto Briefing](https://cryptobriefing.com/zcash-orchard-bug-emergency-upgrade/), [Shielded Labs official statement](https://forum.zcashcommunity.com/t/the-orchard-counterfeiting-vulnerability-and-next-steps/56015).
+
+## 10. Restoring supply integrity — a new shielded pool and turnstile accounting
+
+Rather than leaving users to trust "our assessment," Shielded Labs said it is considering a network upgrade that would let anyone verify Zcash supply integrity. The core proposal is to **deploy a new shielded pool and force turnstile accounting on every coin leaving the Orchard pool**. Source: [Shielded Labs official statement](https://forum.zcashcommunity.com/t/the-orchard-counterfeiting-vulnerability-and-next-steps/56015).
+
+```text
+Concept:
+  Orchard pool → new shielded pool
+
+Verification idea:
+  Publicly track the total leaving Orchard.
+  If more leaves than legitimately entered,
+  the possibility of past forgery is revealed.
+```
+
+Bitquery describes a turnstile as "a public crossing from the shielded side to a transparent address or another pool." A fake coin is invisible while it stays inside the pool, but cashing it out or moving it to another pool must cross a publicly observable boundary. Source: [Bitquery](https://bitquery.io/blog/was-zcash-counterfeited-orchard-bug).
+
+Crypto Briefing, citing the Zcash Foundation, reported that Zcash's turnstile mechanism tracks value across the Sprout, Sapling, Orchard, transparent, and lockbox pools to confirm total supply integrity. The fact that Shielded Labs separately proposed a new shielded pool and Orchard-targeted turnstile accounting shows that the current system alone is not enough to fully restore user trust. Source: [Crypto Briefing](https://cryptobriefing.com/zcash-orchard-bug-emergency-upgrade/), [Shielded Labs official statement](https://forum.zcashcommunity.com/t/the-orchard-counterfeiting-vulnerability-and-next-steps/56015).
+
+<TurnstileRecovery locale="en" />
+
+## 11. Comparison with the 2018 Sprout vulnerability
+
+Zcash also suffered a counterfeiting vulnerability in 2018. In a 2019 disclosure, the Electric Coin Company said that in March 2018 Ariel Gabizon found a soundness flaw in the BCTV14-based zk-SNARK construction used in Sprout, and that it was fixed by the Sapling upgrade on 2018-10-28.
+
+That vulnerability was also specific to counterfeiting and was said to have no impact on user privacy. ECC also said it found no counterfeiting evidence in Sprout pool monitoring and chain analysis. Source: [Electric Coin Company (2019)](https://electriccoin.co/blog/zcash-counterfeiting-vulnerability-successfully-remediated/).
+
+What the Orchard and Sprout incidents share is that "a soundness failure in a ZK system can lead to a supply-integrity problem." The difference: Sprout was a proving-system/parameter-setup flaw, while Orchard — per the public description — was an under-constrained elliptic curve multiplication inside the Orchard circuit. Source: [Electric Coin Company (2019)](https://electriccoin.co/blog/zcash-counterfeiting-vulnerability-successfully-remediated/), [Shielded Labs official statement](https://forum.zcashcommunity.com/t/the-orchard-counterfeiting-vulnerability-and-next-steps/56015).
+
+<SproutVsOrchard locale="en" />
+
+## 12. What AI-assisted auditing means
+
+Shielded Labs says Hornby combined the latest AI-assisted security auditing techniques with traditional security research. In particular, right after the Opus 4.8 release he used it for a focused review of the Orchard circuit and found the bug a day later.
+
+The significance is not "AI completed a mathematical proof on its own." More precisely: "a professional security researcher used AI as an assistive tool to find a ZK circuit vulnerability that people had missed for a long time." So the accurate takeaway is not "AI finds every bug," but that **AI-assisted red-teaming / circuit auditing is increasingly likely to become a standard defensive procedure for ZK and crypto infrastructure**.
+
+Shielded Labs said it will start an Orchard circuit formal verification project and is hiring a Head of Security and a Cryptographer. This can be read as a direction to strengthen AI-assisted auditing and formal verification together. Source: [Shielded Labs official statement](https://forum.zcashcommunity.com/t/the-orchard-counterfeiting-vulnerability-and-next-steps/56015).
+
+## 13. Final summary — safe phrasing
+
+**Statements you can make definitively**: "The Zcash Orchard circuit had an under-constrained element, which let a false input pass the elliptic curve multiplication check. Taylor Hornby found it with Opus 4.8's help and verified an exploit in local regtest that minted unlimited, undetectable counterfeit ZEC." Source: [Shielded Labs official statement](https://forum.zcashcommunity.com/t/the-orchard-counterfeiting-vulnerability-and-next-steps/56015).
+
+**Statements to make carefully**: phrasings like "exactly which two lines were the problem," "the `x2 - x1 != 0` constraint was missing," or "a specific term of the value commitment was forged" cannot be settled from public material alone. Such explanations must always be marked as a **conceptual reconstruction** or a **possible technical model**. Source: [Shielded Labs official statement](https://forum.zcashcommunity.com/t/the-orchard-counterfeiting-vulnerability-and-next-steps/56015), [halo2 Book](https://zcash.github.io/halo2/design/gadgets/ecc/addition.html).
+
+**Safe statements on the market/supply side**: "No large-scale theft or publicly observable supply anomaly was found, but the existence of forgery that stayed inside Orchard cannot be settled cryptographically." Source: [Shielded Labs official statement](https://forum.zcashcommunity.com/t/the-orchard-counterfeiting-vulnerability-and-next-steps/56015), [Bitquery](https://bitquery.io/blog/was-zcash-counterfeited-orchard-bug), [Crypto Briefing](https://cryptobriefing.com/zcash-orchard-bug-emergency-upgrade/).
+
+## 14. Takeaways
+
+In ZK circuits, the most dangerous bug is often a "missing equation" rather than a "wrong equation." The verifier only checks the constraints that are written down, so any relationship the designer omitted disappears outside the proof system. The Orchard incident demonstrates this principle once again, on a large real-world privacy coin.
+
+Privacy protects users, but it also limits post-incident forensics. The fact that we cannot prove cryptographically whether forgery actually happened inside Orchard shows that a privacy system must, by design, include an **after-the-fact-verifiable accounting boundary**.
+
+AI-assisted auditing is the same tool for attackers and defenders alike. This time a white-hat found it first, but going forward, AI-driven vulnerability discovery should be part of the baseline threat model for ZK circuits, smart contracts, wallets, bridges, and exchange infrastructure.
+
+---
+
+### References
+
+- Shielded Labs — [The Orchard counterfeiting vulnerability and next steps](https://forum.zcashcommunity.com/t/the-orchard-counterfeiting-vulnerability-and-next-steps/56015) (official statement).
+- Bitquery — [Was Zcash counterfeited? The Orchard bug](https://bitquery.io/blog/was-zcash-counterfeited-orchard-bug) (on-chain analysis).
+- Crypto Briefing — [Zcash Orchard bug emergency upgrade](https://cryptobriefing.com/zcash-orchard-bug-emergency-upgrade/).
+- CoinDesk — [Zcash plummets ~30% as developer reveals a major bug](https://www.coindesk.com/markets/2026/06/05/zcash-plummets-30-as-developer-reveals-a-major-bug-that-went-undetected-for-four-years).
+- Electric Coin Company (2019) — [Zcash counterfeiting vulnerability successfully remediated](https://electriccoin.co/blog/zcash-counterfeiting-vulnerability-successfully-remediated/) (2018 Sprout).
+- The halo2 Book — [Incomplete and complete addition](https://zcash.github.io/halo2/design/gadgets/ecc/addition.html).

@@ -71,3 +71,14 @@ code[data-line-numbers] > [data-line]::before {
   background: rgba(200, 200, 255, 0.1);
   border-left: 2px solid #6366f1;
 }
+/* Shiki dual-theme syntax highlighting. The configured { light: github-light,
+   dark: github-dark } themes emit per-token --shiki-light / --shiki-dark CSS
+   variables instead of a fixed color, so we map them to `color` here, switching
+   on the same [data-theme="dark"] variant the rest of the site uses. Without
+   this, every token inherits the foreground color and code looks monochrome. */
+[data-rehype-pretty-code-figure] code span {
+  color: var(--shiki-light, inherit);
+}
+[data-theme="dark"] [data-rehype-pretty-code-figure] code span {
+  color: var(--shiki-dark, inherit);
+}
