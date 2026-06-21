@@ -1,0 +1,310 @@
+---
+title: Can Storing Your Wallet Keys on a Phone Ever Be Perfectly Secure?
+description: Secure Enclave, threat models, defense in depth, and Passkey- / ERC-4337-based account abstraction — why keeping blockchain wallet keys on a phone can be "good enough" but never "perfect," and the structural limits behind that.
+date: 2026-06-21
+tags: [security, blockchain, wallet, Passkey, cryptography]
+---
+
+import { SecurityTrilemma } from "@/components/diagrams/SecurityTrilemma";
+import { KeyTrustBoundary } from "@/components/diagrams/KeyTrustBoundary";
+import { SepCurveMismatch } from "@/components/diagrams/SepCurveMismatch";
+import { SigningDelegationParadox } from "@/components/diagrams/SigningDelegationParadox";
+import { TrustChainAsymmetry } from "@/components/diagrams/TrustChainAsymmetry";
+import { DefenseInDepth } from "@/components/diagrams/DefenseInDepth";
+import { CustodyByAssetSize } from "@/components/diagrams/CustodyByAssetSize";
+import { PasskeyAccountFlow } from "@/components/diagrams/PasskeyAccountFlow";
+import { Erc7913Signer } from "@/components/diagrams/Erc7913Signer";
+import { P256VerificationCost } from "@/components/diagrams/P256VerificationCost";
+import { PasskeySigningSequence } from "@/components/diagrams/PasskeySigningSequence";
+
+> **Core thesis** — there is no "absolutely secure" way to store a key. Keeping wallet keys on a phone can be *secure enough in practice*, but it can never be *perfectly secure*.
+
+## 1. The trap in asking "is it perfectly secure?"
+
+"Is it perfectly secure?" is really a question that overlooks the confidentiality–availability–usability trilemma. No system can guarantee all three at once.
+
+- **Confidentiality** — the key never leaks
+- **Availability** — the user can always reach the key when they need it
+- **Usability** — an ordinary person can handle it without mistakes
+
+These three are interlocked: push one up and another wobbles. Write the key on paper, lock it in a safe, and cut it off from the internet entirely, and confidentiality rises while availability and usability collapse. A phone is the opposite corner — **a choice to raise availability and usability at the cost of a wider attack surface.**
+
+<SecurityTrilemma locale="en" />
+
+> **So the real question** is not "is it perfectly secure?" but **"under which threat model, and to what degree, is it secure?"**
+
+## 2. The threat model
+
+You cannot evaluate the safety of key storage without defining "against whom, and protecting what."
+
+| Attacker type | Capability | How well phone key storage defends |
+| --- | --- | --- |
+| Ordinary thief (lost/stolen device) | Physical access, doesn't know the passcode | 🟢 Strong — Secure Enclave + biometrics effectively block it |
+| Remote malware / malicious app | Code execution within app permissions | 🟡 Medium — sandbox and keystore make key *extraction* hard, but screen/input interception is a risk |
+| Phishing / social engineering | Tricks the user into signing or entering the seed | 🔴 Weak — however strong the hardware, if the user approves it themselves it is powerless |
+| Sophisticated targeted attack (0-day) | Kernel/OS vulnerabilities, zero-click exploits | 🔴 Weak — against Pegasus-class attacks the isolation boundary can collapse |
+| Nation-state / supply-chain attack | Compromise of firmware, hardware, certificate chains | 🔴 Very weak — the root of trust itself is breached |
+
+> **Key insight** — phone key storage is very strong against *everyday threats (theft, loss)* but inherently weak against *attacks that deceive the user (phishing)* and *nation-state targeting*. Most real asset theft, too, comes not from 0-days but from **phishing and user error**.
+
+## 3. How a phone stores keys
+
+Modern smartphones do not store keys in plaintext on disk. But to really answer "how do they store them," one sentence isn't enough. Let's break key storage into three questions.
+
+1. **Where does the key live** — the storage layer
+2. **What controls the key's use** — the protection mechanisms
+3. **What does the secure region guarantee, and what does it not** — the trust boundary and its limits
+
+### 3.1 Where the key lives — the spectrum of storage layers
+
+Even when you call the same Keystore API, safety changes completely depending on which layer the key is actually backed by. A key's storage location is not a single point but a spectrum of protection strength.
+
+- **Software keystore** — the key is stored (usually encrypted) in a region the OS can access. At use time it is decrypted into normal-world memory, so if the OS is breached the key is at risk too. The weakest layer.
+- **TEE (Trusted Execution Environment)** — key operations run in the secure world of ARM TrustZone. Isolated from the normal-world Android kernel, plain rooting alone cannot extract the key — though the TEE itself can have vulnerabilities.
+- **Dedicated secure chip (Secure Element)** — a physically separate chip like iOS's Secure Enclave or Android's StrongBox (e.g., Pixel's Titan M2), with its own CPU, memory, RNG, and tamper resistance, making key extraction hardest. (StrongBox may be absent depending on the device.)
+
+| Storage layer | Isolation boundary | Key extraction if the OS is rooted | Example |
+| --- | --- | --- | --- |
+| Software | Process · disk encryption | 🔴 Possible — decrypted in memory, exposed | Fallback on old/low-end devices |
+| TEE | TrustZone secure world | 🟡 Hard — needs a TEE vulnerability | Most Android devices |
+| Dedicated secure chip | Physically separate SE | 🟢 Practically impossible | SEP (iOS), StrongBox / Titan M2 |
+
+The same "keep the key on the phone" maps to different threat models depending on which row applies. Which layer the wallet demands (e.g., Android's `setIsStrongBoxBacked(true)`) determines the real security level.
+
+### 3.2 What controls the key's use — four protection mechanisms
+
+Making the key non-extractable (isolation) is only one of four mechanisms. Modern secure chips enforce these together.
+
+1. **Isolation** — the private-key bits never appear in memory outside the secure boundary. What the app handles is a key handle, not the key.
+2. **Auth binding** — ties key use to biometric/passcode authentication. iOS uses `kSecAccessControl`, Android `setUserAuthenticationRequired`. The validity scope splits into a *time window* (allowed for N seconds after one auth) and *per-use* (re-auth for every signature).
+3. **Rate limiting / wipe** — throttles brute force with hardware counters and wipes data past a threshold. iOS uses exponential delays between passcode attempts plus an auto-wipe option; Android uses Gatekeeper/Weaver throttling and StrongBox monotonic counters.
+4. **Attestation** — proves via a certificate chain that the key is genuinely hardware-backed. Android Key Attestation and iOS App Attest belong here. A server can remotely verify "this key really is inside a secure chip."
+
+The common root of all four is the **hardware root of trust** — a device UID fused into the chip and a verified boot chain. The guarantees above hold only on the assumption that this root of trust is intact.
+
+### 3.3 iOS vs Android — implementation comparison
+
+| Aspect | iOS | Android |
+| --- | --- | --- |
+| Secure hardware | Secure Enclave (SEP) | TEE (TrustZone) / StrongBox (dedicated secure chip) |
+| Key storage API | Keychain + Secure Enclave | Android Keystore |
+| Storage backing | Always protected by the SEP or a Data Protection class key | Software / TEE / StrongBox, decided per device & request |
+| Access control | Data Protection class + `kSecAccessControl` | `setUserAuthenticationRequired` + BiometricPrompt |
+| Key extractability | Asymmetric keys can't leave the SEP (only signing is delegated) | StrongBox/TEE keys are non-extractable; software keystore is relatively weaker |
+| Brute-force defense | Passcode delays + auto-wipe option | Gatekeeper/Weaver throttling, StrongBox counters |
+| Hardware attestation | App Attest / DeviceCheck | Key Attestation (Google root chain) |
+| Biometric binding | Access gated by Face ID / Touch ID | BiometricPrompt + setUserAuthenticationRequired |
+
+### 3.4 The trust boundary
+
+<KeyTrustBoundary locale="en" />
+
+The crux is that **the private key never leaves the secure region; only the signing operation is delegated to it.** Working ideally, even if malware fully owns the app the key itself can't be extracted. **But** this model has two fundamental limits.
+
+1. **The signing-delegation paradox** — even without extracting the key, if malware *requests a signature on the transaction it wants*, the secure region signs it anyway. The key's confidentiality holds, yet the assets can be drained.
+2. **The premise of the trust boundary** — the assumption that "the secure region is safe" holds *only while firmware, OS, and hardware are uncompromised.*
+
+### 3.5 Two decisive constraints of the Secure Enclave — non-exportable, and an algorithm mismatch
+
+From a blockchain-wallet perspective, the Secure Enclave (SEP) has two often-overlooked constraints.
+
+#### ① The private key cannot be exported (non-exportable by design)
+
+A key generated in the SEP is **created inside the chip, and the private-key bits never cross the SEP boundary.** What the app handles is not the key itself but an *opaque reference* to it (iOS's `SecKey`, Android's `KeyStore` alias).
+
+- The app can only *request* "sign this data" / "do ECDH with this value"; it cannot read the raw key bytes.
+- Even if you root/jailbreak and own the OS, you can't pull the key out of the SEP (what you get is still just a handle).
+- **Upside**: malware can't copy the key and carry it to another device.
+- **Downside (the paradox)**: backup, transfer to another device, and showing a seed phrase are *fundamentally impossible*. So an SEP key means "lose it and it's gone" — in availability terms it's actually a burden.
+
+#### ② The supported algorithm differs, so you can't use it directly as a blockchain key
+
+This is the crux. What the Secure Enclave supports at the hardware level is **only ECC keys on the NIST P-256 (secp256r1, prime256v1) curve, with ECDSA/ECDH operations.**
+
+| Case | Curve / algorithm | Sign directly in the SEP? |
+| --- | --- | --- |
+| Bitcoin / Ethereum (EOA) | secp256k1 (ECDSA) | ❌ No — a curve the SEP does not support |
+| Solana / Aptos, etc. | Ed25519 | ❌ No — unsupported by the SEP |
+| Secure Enclave native | secp256r1 (P-256) | ✅ Yes — but only meaningful if the chain supports P-256 verification |
+
+In other words, **you cannot put an Ethereum private key inside the SEP and have it produce secp256k1 signatures.** secp256k1 and secp256r1 are separate cryptosystems with different curve parameters. So real mobile wallets use one of two workaround patterns.
+
+1. **Use the SEP key as a wrapping key (KEK)** — store the actual secp256k1 private key *encrypted* in the Keychain/Keystore, and gate that encryption key behind the SEP with biometrics. Since the key must be decrypted into app memory at signing time, a *brief exposure window* remains.
+2. **Use a P-256 key as the signer for an AA account** — rather than turning the Ethereum EOA itself into secp256r1, make an Account Abstraction (AA) account accept a P-256 signature as a valid owner signature. ERC-4337 provides the execution model, ERC-1271 the contract signature-verification interface, ERC-7913 a way to represent a key with no Ethereum address as a signer, and the RIP-7212/EIP-7951 family of precompiles lowers the cost of P-256 verification.
+
+<SepCurveMismatch locale="en" />
+
+> **To sum up** — the SEP is "a vault you can't take the key out of," but *the key shape it can handle (P-256) differs from the key shape the blockchain demands (secp256k1).* That mismatch is the central constraint of mobile-wallet design, and the very force driving the shift to Passkey-based AA.
+
+## 4. Analysis by attack path
+
+### 4.1 Physical theft — well defended 🟢
+
+Even if the device is stolen, the combination of lock screen, biometrics, and SEP blocks key access. Brute force is rate-limited at the hardware level and the data is wiped. **In this area a phone can be safer than a paper wallet.**
+
+### 4.2 Malware / malicious apps — partial defense 🟡
+
+- Thanks to the app sandbox and keystore, *extracting* the key is hard.
+- But **overlay attacks** (fake screens), **abuse of accessibility permissions**, **clipboard hijacking** (swapping the address), and **screen capture** can target the seed phrase.
+- The weakest link is precisely the moment the user enters or displays the seed phrase on screen.
+
+Below is the **signing-delegation paradox** mentioned earlier — the attack flow where the key is safe but the assets are drained.
+
+<SigningDelegationParadox locale="en" />
+
+### 4.3 Side-channel / inference attacks — residual risk 🟡
+
+Power analysis, timing, and cache attacks are academically demonstrated. Unrealistic for ordinary users, but they can be effective against high-value targets.
+
+### 4.4 OS / kernel 0-days — hard to defend 🔴
+
+As with Pegasus or zero-click iMessage exploits, **an attacker who has seized kernel privileges** can bypass the trust boundary itself or manipulate the signing flow. Once you reach this stage, the guarantee that "the hardware protects the key" weakens dramatically.
+
+### 4.5 Phishing / social engineering — the biggest threat 🔴
+
+Even the technically most robust wallet is powerless if the user signs a malicious transaction themselves or enters the seed on a fake site. **Most real losses happen here.** This is not a phone-specific problem but a structural limit: **the party that ultimately decides whether to trust is, in the end, a human.**
+
+## 5. Why "perfect" is impossible — the structural reasons
+
+> **A structural problem** — what blocks perfect security is not *one particular bug* but *the structure of the system itself.*
+
+- **Layered trust assumptions** — chip vendor → firmware → OS → app → user; every stage must be assumed safe. Break any single one and the whole guarantee collapses. The user cannot verify these assumptions directly.
+- **A TCB (Trusted Computing Base) that is hard to verify** — the Secure Enclave firmware is closed and cannot be audited by the user. In the end it is a region you "trust to be safe," not one you can prove safe yourself.
+- **The human as final arbiter** — the final approval is made by a person. Social engineering routes around cryptography without breaking it head-on.
+- **The asymmetry of defense and attack** — the defender must close *every* hole, while the attacker only needs *one*.
+- **Time-of-check/time-of-use issues (TOCTOU-style)** — state can change between when you verify and when you actually use. Security is not a single snapshot but a state that keeps wobbling and eroding.
+
+<TrustChainAsymmetry locale="en" />
+
+## 6. So how do you make it "good enough"?
+
+That perfection is impossible doesn't mean "give up." The key is to **eliminate the single point of failure and spread the risk.**
+
+| Mitigation | Threat it blocks | Trade-off |
+| --- | --- | --- |
+| Enforce a hardware keystore (StrongBox/SEP) | Key extraction, physical theft | Compatibility with older devices |
+| Biometrics + per-transaction auth | Unauthorized signing, background malware | More usability friction |
+| MPC (multi-party computation) / key splitting | Single-device compromise | Implementation complexity, infra dependency |
+| Multisig | Single-key theft, insiders | Complex UX, gas cost |
+| Social recovery / AA accounts | Key loss, availability problems | Guardian trust & collusion risk |
+| Spending limits · whitelist · timelock | Instant theft after phishing | Inconvenient for urgent transfers |
+| A separate hardware wallet (cold keys) | Online attacks broadly | Sacrifices portability and convenience |
+
+Stacking several barriers so that the next layer holds when one is breached — **defense in depth** — looks like this.
+
+<DefenseInDepth locale="en" />
+
+> **Practical recommendation** — keeping keys on a phone is a reasonable choice for *small, everyday transactions*. But you need **defense in depth**: ① enforce a hardware keystore, ② take explicit biometric approval for every transaction, ③ separate high-value funds into multisig/MPC or a cold wallet, and ④ limit phishing damage with spending limits and whitelists. "How you spread the risk" matters more than "where you put the key."
+
+Choosing a custody strategy by asset size roughly follows this guideline.
+
+<CustodyByAssetSize locale="en" />
+
+## 7. Replacing key management with Passkeys
+
+The SEP constraints we just saw (non-exportable + P-256 only) interlock, paradoxically, exactly with **Passkeys**. A Passkey is essentially *a non-exportable P-256 (secp256r1) key pair stored in the SEP/StrongBox.* The push to replace seed-phrase-based key management with Passkeys can be laid out as follows.
+
+### 7.1 What a Passkey is
+
+- A WebAuthn/FIDO2 credential — **a P-256 key pair stored in a hardware secure region.** The private key never leaves the SEP.
+- It is **origin-bound**, so on a fake site the signing request doesn't even form → *structurally resistant to phishing.* (It directly addresses the seed phrase's biggest weakness.)
+- It runs either as a **synced passkey** (via iCloud Keychain / Google Password Manager) or as a **device-bound passkey** tied to one device.
+
+### 7.2 The standard stack that makes up a Passkey-based wallet
+
+Saying a Passkey "replaces the wallet key" does not mean an Ethereum EOA suddenly signs secp256r1 transactions. More precisely, it means **the Passkey's P-256 key is accepted as the owner key of an Account Abstraction (AA) account, and that signature is processed through a standardized verification path.**
+
+| Component | Layer it covers | Core role |
+| --- | --- | --- |
+| Passkey / WebAuthn | User's device | A P-256 key inside the SEP/StrongBox signs after the user's biometric check. The private key never leaves the device. |
+| ERC-4337 | AA execution model | Submits a `UserOperation` without an EOA signature; the AA account's `validateUserOp` verifies the owner signature. |
+| ERC-1271 | Contract signature compatibility | The AA account answers via `isValidSignature(hash, signature)` that "this signature is valid for this account," in a standard way. |
+| ERC-7913 | Addressless signer representation | Represents a key with no Ethereum address (like P-256) as a `verifier \|\| key` signer, verified by a dedicated verifier. |
+| RIP-7212 / EIP-7951 | EVM precompile | Makes secp256r1 verification cheap and fast on the EVM, turning Passkey-based AA into something practical. |
+
+In this stack the roles don't overlap. **ERC-4337 handles "how the AA account executes a transaction," ERC-1271 handles "how a contract account's signature is verified from the outside," and ERC-7913 handles "how a key with no Ethereum address is represented as a signer."** RIP-7212/EIP-7951 is the foundation that keeps this whole structure from becoming impractical on gas cost, by bringing P-256 verification close to a native operation.
+
+<PasskeyAccountFlow locale="en" />
+
+### 7.3 ERC-1271 — the standard that makes an AA account's signatures compatible with the outside world
+
+An EOA binds address and private key 1:1, and signature verification revolves around `ecrecover`. An AA account, being a contract, can decide by internal logic "which signatures this account considers valid." External dApps, protocols, and contracts shouldn't have to know each wallet's internal implementation every time. **ERC-1271 is the spec that lets a contract account answer signature validity through a standard interface.**
+
+- The core function is `isValidSignature(hash, signature)`.
+- Whatever verification method the AA account uses internally — P-256, secp256k1, multisig, session keys, social recovery — it ultimately returns "valid" or "invalid" in a standard format.
+- In a Passkey wallet, the `signature` carries the WebAuthn signature data and any needed metadata, and the AA account interprets it and routes it to the P-256 verification path.
+- So ERC-1271 is not a standard that defines P-256 directly; it is **the contact point that lets a P-256-based AA account stay compatible with the existing dApp ecosystem.**
+
+> **In one sentence** — ERC-1271 is **"the spec that lets a contract wallet, too, state its signature-verification result in a standard way."** A Passkey slots in as one kind of that internal verification logic.
+
+### 7.4 ERC-7913 — handling a key with no Ethereum address as a signer
+
+The difficulty with a P-256 Passkey is not only verification cost. Because it isn't a key that naturally yields an Ethereum address the way a secp256k1 EOA does, the question arises: **"as what signer do we represent this P-256 public key?"** ERC-7913 addresses exactly this.
+
+- In the existing model a signer is mostly an Ethereum address.
+- But Passkeys, hardware security keys, RSA keys, and public keys from other systems have no Ethereum address of their own.
+- ERC-7913 represents a signer not as a plain address but as a **byte string of the form `verifier || key`.**
+- Here `verifier` is the contract address that will verify that key type, and `key` is the real identifier (e.g., a P-256 public key).
+- At verification time, the verifier embedded in the signer interprets the signature and, when needed, calls the P-256 precompile to verify it.
+
+The advantage is that an AA account can handle several kinds of keys within the same framework. For example, one account could hold this combination of signers:
+
+- An iPhone Passkey P-256 key
+- An Android StrongBox P-256 key
+- A hardware security key
+- A guardian key for recovery
+- A session key or limited-permission key
+
+So ERC-7913 is less about treating Passkeys as a "special exception" and more **a generalized representation that folds addressless keys broadly into an AA account's signers.**
+
+<Erc7913Signer locale="en" />
+
+### 7.5 RIP-7212 and EIP-7951 — the basis for bringing P-256 verification to a usable cost
+
+P-256 signatures are originally the curve WebAuthn, Passkeys, the Secure Enclave, and the Android Keystore widely use. The problem is that the EVM was traditionally designed around secp256k1, and implementing P-256 verification in pure Solidity costs far too much gas.
+
+- **RIP-7212** is a proposal to provide a secp256r1 verification precompile, mainly in L2/rollup environments. That is why Passkey-based wallets could be experimented with and made practical so quickly on L2s.
+- **EIP-7951** aims to standardize the secp256r1 verification precompile in Ethereum's mainline EIP process. It leans toward treating P-256 verification as a safer, clearer chain-level feature while staying compatible with RIP-7212-style implementations.
+- With a precompile, an AA account or verifier contract doesn't run the complex elliptic-curve math in Solidity; it passes `hash`, `r`, `s`, the public-key coordinates, and so on to a fixed precompile and gets the verification result back.
+- As a result, P-256 verification shifts from "possible but expensive" to **a feature you can actually use in a Passkey wallet.**
+
+> **The point of the precompile** — the core of RIP-7212/EIP-7951 is not "it lets the Passkey sign," but **"it lets a P-256 signature the Passkey produced be verified on-chain at an affordable cost."** The signing is done by the SEP/StrongBox inside the device; the chain only checks whether that signature is valid.
+
+<P256VerificationCost locale="en" />
+
+### 7.6 What "using secp256r1 directly as a signer" precisely means
+
+The curve-mismatch problem is solved less by "changing the EOA signing algorithm" and more by **moving the location of signature verification to the AA account.**
+
+- **The EOA is still secp256k1-centric** — the transaction-signing scheme of a basic Ethereum account has not changed to secp256r1.
+- **The AA account defines its own signing rules** — an ERC-4337 account can implement whatever owner rule it wants inside `validateUserOp`: P-256, multisig, social recovery, and so on.
+- **ERC-1271 provides external compatibility** — a dApp or other contract can check signature validity through a standard interface without knowing the AA account's internal key type.
+- **ERC-7913 represents the P-256 key as a signer** — it lets a key with no Ethereum address, like a Passkey, be handled as an independent signer.
+- **RIP-7212/EIP-7951 solves the cost problem** — handling P-256 verification in pure Solidity is expensive, but a precompile brings it down to a usable level.
+
+The full flow looks like this. It is not a seed phrase or a secp256k1 EOA key, but a Passkey inside the SEP, that acts as the AA account's owner signer.
+
+<PasskeySigningSequence locale="en" />
+
+### 7.7 Trade-offs — Passkeys are not a silver bullet
+
+> **Be sure to recognize** — Passkeys bring big advantages (*phishing resistance, non-exportability, better UX*), but you must recognize that they **move the root of trust for key storage toward your cloud account.**
+
+- **Custody shift of synced Passkeys** — if your iCloud/Google account is compromised, the synced Passkey is at risk too. That is, *wallet security becomes dependent on cloud-account security.* (Keeping it device-bound is safer, but unrecoverable if lost.)
+- **Curve/gas cost** — on chains without a precompile, on-chain P-256 verification is expensive.
+- **Dependence on AA infrastructure** — the path where a Passkey is used directly as a signer presupposes an AA account, not an EOA. So it depends on ERC-4337 bundlers, paymasters, verifier contracts, and whether the chain supports a P-256 precompile.
+- **Not "removing the key" but "delegating the key"** — a Passkey is ultimately a key too. Relying on a single Passkey makes it a single point of failure, so it must be combined with multiple Passkeys, multisig, and social recovery.
+
+> **Summary** — a Passkey-based design structurally reduces the weaknesses (phishing, loss, exposure) of the "a human stores and types the seed phrase" model. In particular, the *Passkey (P-256) → ERC-7913/1271 signature verification → ERC-4337 AA account → RIP-7212/EIP-7951 precompile* combination is the most promising direction right now: it routes around the SEP's algorithm constraint while keeping its non-exportable security intact. But note that this changes the AA account's owner-verification method, not the EOA's own signing scheme — and the threat model must also reflect that the trust assumption has moved to the cloud account.
+
+## 8. Conclusion
+
+> Storing wallet keys on a phone **cannot be perfectly secure.** But that is less a flaw of the phone than a consequence of a fundamental premise of security: *no key-storage method can be perfect.*
+
+- **Perfect security does not exist.** Because of the layered trust assumptions, the hard-to-verify TCB, and the structural limit of the human as final arbiter.
+- **Phones are strong against everyday threats (loss, theft) and weak against targeted attacks and phishing.** The assessment changes completely with the threat model.
+- **Most real losses come not from a collapse of cryptography but from deceiving the user.** So UX and permission design matter as much as the crypto algorithm.
+- **The Secure Enclave makes keys non-exportable, but does not natively support secp256k1.** So the SEP is usually used as a wrapping key, or a Passkey (P-256) is used as the owner key of an ERC-4337 AA account and processed through the ERC-1271/7913 and RIP-7212/EIP-7951 verification paths — a rising pattern.
+- **The right goal is not "perfection" but "remove the single point of failure + spread the risk + bound the damage."**
+
+In the end, security is a *process*, not a *state*. Turning the binary question "is it perfectly secure?" into the engineering question "is this an acceptable level of risk for my threat model?" is the most accurate answer to this topic.
