@@ -1,4 +1,7 @@
+"use client";
+
 import { Figure } from "./Figure";
+import { useStepReveal, Reveal, ReplayButton } from "./useStepReveal";
 
 type Locale = "ko" | "en";
 
@@ -35,21 +38,30 @@ const STRINGS = {
 
 export function DefenseInDepth({ locale = "ko" }: { locale?: Locale }) {
   const s = STRINGS[locale];
+  const a = useStepReveal(2 + s.layers.length);
+  const assetIdx = 1 + s.layers.length;
 
   const asset = (
-    <div className="rounded-md border border-emerald-400 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 px-4 py-4 text-center">
-      <div className="text-sm font-bold text-emerald-800 dark:text-emerald-200">
-        🎯 {s.asset}
+    <Reveal shown={a.shown(assetIdx)} current={a.current(assetIdx)}>
+      <div className="rounded-md border border-emerald-400 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 px-4 py-4 text-center">
+        <div className="text-sm font-bold text-emerald-800 dark:text-emerald-200">
+          🎯 {s.asset}
+        </div>
       </div>
-    </div>
+    </Reveal>
   );
 
-  // Build the nesting from the asset outward: layer 1 ends up outermost.
-  const nested = s.layers.reduceRight<React.ReactNode>(
-    (inner, layer) => (
+  // Build the nesting from the asset outward: layer 1 ends up outermost and
+  // reveals first, so the shields appear to stack inward around the asset.
+  const nested = s.layers.reduceRight<React.ReactNode>((inner, layer, i) => {
+    const idx = 1 + i;
+    return (
       <div
         key={layer.n}
-        className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-100/60 dark:bg-zinc-900/50 pt-8 px-3 pb-3 relative"
+        className={`rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-100/60 dark:bg-zinc-900/50 pt-8 px-3 pb-3 relative transition-all duration-500 ${
+          a.current(idx) ? "ring-2 ring-amber-400/80 dark:ring-amber-500/70" : ""
+        }`}
+        style={{ opacity: a.shown(idx) ? 1 : 0 }}
       >
         <div className="absolute top-0 left-3 -translate-y-1/2 flex items-center gap-1.5 rounded-full border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-2.5 py-0.5">
           <span className="font-mono text-[10px] font-bold w-4 h-4 rounded-full bg-zinc-800 dark:bg-zinc-200 text-white dark:text-zinc-900 flex items-center justify-center">
@@ -64,27 +76,29 @@ export function DefenseInDepth({ locale = "ko" }: { locale?: Locale }) {
         </div>
         {inner}
       </div>
-    ),
-    asset,
-  );
+    );
+  }, asset);
 
   return (
     <Figure caption={s.caption}>
-      <div className="max-w-2xl mx-auto">
-        {/* Threat */}
-        <div className="rounded-md border border-rose-400 dark:border-rose-700 bg-rose-50 dark:bg-rose-950/40 px-4 py-2.5 text-center">
-          <span className="text-sm font-bold text-rose-800 dark:text-rose-200">
-            {s.threat}
-          </span>
-          <span className="text-xs text-rose-700/80 dark:text-rose-300/80 ml-2">
-            {s.threatSub}
-          </span>
-        </div>
+      <div ref={a.ref} className="max-w-2xl mx-auto">
+        <Reveal shown={a.shown(0)} current={a.current(0)}>
+          <div className="rounded-md border border-rose-400 dark:border-rose-700 bg-rose-50 dark:bg-rose-950/40 px-4 py-2.5 text-center">
+            <span className="text-sm font-bold text-rose-800 dark:text-rose-200">
+              {s.threat}
+            </span>
+            <span className="text-xs text-rose-700/80 dark:text-rose-300/80 ml-2">
+              {s.threatSub}
+            </span>
+          </div>
+        </Reveal>
         <div className="text-center text-zinc-400 dark:text-zinc-600 text-lg leading-none my-1">
           ↓
         </div>
-        {/* Nested defensive layers */}
         {nested}
+        {a.enabled && (
+          <ReplayButton onClick={a.replay} playing={a.playing} locale={locale} />
+        )}
       </div>
     </Figure>
   );

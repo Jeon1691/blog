@@ -1,4 +1,7 @@
+"use client";
+
 import { Figure } from "./Figure";
+import { useStepReveal, Reveal, ReplayButton } from "./useStepReveal";
 
 type Locale = "ko" | "en";
 
@@ -53,55 +56,127 @@ const STRINGS = {
 
 export function PasskeyAccountFlow({ locale = "ko" }: { locale?: Locale }) {
   const s = STRINGS[locale];
+  const a = useStepReveal(9);
   return (
     <Figure caption={s.caption}>
-      <div className="max-w-md mx-auto flex flex-col">
-        <Box title={s.user} />
-        <Down />
-        <Box title={s.passkey} sub={s.passkeySub} tone="safe" />
-        <Down />
-        <Box title={s.userop} sub={s.useropSub} />
-        <Down />
-        <Box title={s.aa} sub={s.aaSub} mono />
-        <Down />
+      <div ref={a.ref} className="max-w-md mx-auto flex flex-col">
+        <Reveal shown={a.shown(0)} current={a.current(0)}>
+          <Box title={s.user} />
+        </Reveal>
+        <Arrow shown={a.shown(1)} current={a.current(1)} />
+        <Reveal shown={a.shown(1)} current={a.current(1)}>
+          <Box title={s.passkey} sub={s.passkeySub} tone="safe" />
+        </Reveal>
+        <Arrow shown={a.shown(2)} current={a.current(2)} />
+        <Reveal shown={a.shown(2)} current={a.current(2)}>
+          <Box title={s.userop} sub={s.useropSub} />
+        </Reveal>
+        <Arrow shown={a.shown(3)} current={a.current(3)} />
+        <Reveal shown={a.shown(3)} current={a.current(3)}>
+          <Box title={s.aa} sub={s.aaSub} mono />
+        </Reveal>
+        <Arrow shown={a.shown(4)} current={a.current(4)} />
 
         {/* Branch: two standards interpret the signature */}
-        <div className="grid grid-cols-2 gap-3">
-          <Box title={s.erc1271} sub={s.erc1271Sub} />
-          <Box title={s.erc7913} sub={s.erc7913Sub} />
-        </div>
-        <Down />
-        <Box title={s.verifier} />
-        <Down />
-        <Box title={s.precompile} sub={s.precompileSub} tone="safe" />
-        <Down />
+        <Reveal shown={a.shown(4)} current={a.current(4)}>
+          <div className="grid grid-cols-2 gap-3">
+            <Box title={s.erc1271} sub={s.erc1271Sub} />
+            <Box title={s.erc7913} sub={s.erc7913Sub} />
+          </div>
+        </Reveal>
+        <Arrow shown={a.shown(5)} current={a.current(5)} />
+        <Reveal shown={a.shown(5)} current={a.current(5)}>
+          <Box title={s.verifier} />
+        </Reveal>
+        <Arrow shown={a.shown(6)} current={a.current(6)} />
+        <Reveal shown={a.shown(6)} current={a.current(6)}>
+          <Box title={s.precompile} sub={s.precompileSub} tone="safe" />
+        </Reveal>
+        <Arrow shown={a.shown(7)} current={a.current(7)} />
 
         {/* Decision */}
         <div className="flex justify-center">
-          <div className="rounded-full border border-zinc-400 dark:border-zinc-600 bg-zinc-100 dark:bg-zinc-900 px-4 py-1.5 text-sm font-semibold text-zinc-800 dark:text-zinc-200">
-            {s.decision}
-          </div>
+          <Reveal shown={a.shown(7)} current={a.current(7)}>
+            <div className="rounded-full border border-zinc-400 dark:border-zinc-600 bg-zinc-100 dark:bg-zinc-900 px-4 py-1.5 text-sm font-semibold text-zinc-800 dark:text-zinc-200">
+              {s.decision}
+            </div>
+          </Reveal>
         </div>
-        <div className="grid grid-cols-2 gap-3 mt-2">
-          <div className="flex flex-col items-center">
-            <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
-              ↓ {s.yes}
+        <Reveal shown={a.shown(8)} current={a.current(8)}>
+          <div className="grid grid-cols-2 gap-3 mt-2">
+            <div className="flex flex-col items-center">
+              <Branch shown={a.shown(8)} current={a.current(8)} label={s.yes} />
+              <div className="w-full rounded-md border border-emerald-400 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-2 text-sm font-semibold text-center text-emerald-800 dark:text-emerald-200 mt-1">
+                ✓ {s.exec}
+              </div>
             </div>
-            <div className="w-full rounded-md border border-emerald-400 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-2 text-sm font-semibold text-center text-emerald-800 dark:text-emerald-200 mt-1">
-              ✓ {s.exec}
-            </div>
-          </div>
-          <div className="flex flex-col items-center">
-            <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
-              ↓ {s.no}
-            </div>
-            <div className="w-full rounded-md border border-rose-400 dark:border-rose-700 bg-rose-50 dark:bg-rose-950/40 px-3 py-2 text-sm font-semibold text-center text-rose-800 dark:text-rose-200 mt-1">
-              ✗ {s.reject}
+            <div className="flex flex-col items-center">
+              <Branch shown={a.shown(8)} current={a.current(8)} label={s.no} />
+              <div className="w-full rounded-md border border-rose-400 dark:border-rose-700 bg-rose-50 dark:bg-rose-950/40 px-3 py-2 text-sm font-semibold text-center text-rose-800 dark:text-rose-200 mt-1">
+                ✗ {s.reject}
+              </div>
             </div>
           </div>
-        </div>
+        </Reveal>
+
+        {a.enabled && (
+          <ReplayButton onClick={a.replay} playing={a.playing} locale={locale} />
+        )}
       </div>
     </Figure>
+  );
+}
+
+// A connector that draws top→bottom as the flow reaches it, glowing amber while
+// the payload passes through, then settling to a static arrow.
+function Arrow({ shown, current }: { shown: boolean; current: boolean }) {
+  return (
+    <div className="flex justify-center my-1" aria-hidden>
+      <div className="relative h-5 w-px">
+        <div
+          className={`absolute inset-0 origin-top transition-transform duration-300 ease-out ${
+            current
+              ? "bg-amber-400 dark:bg-amber-500"
+              : "bg-zinc-300 dark:bg-zinc-600"
+          }`}
+          style={{ transform: shown ? "scaleY(1)" : "scaleY(0)" }}
+        />
+        <svg
+          width="9"
+          height="7"
+          viewBox="0 0 9 7"
+          className={`absolute left-1/2 -translate-x-1/2 -bottom-1 transition-opacity duration-200 ${
+            current
+              ? "fill-amber-500 dark:fill-amber-400"
+              : "fill-zinc-400 dark:fill-zinc-600"
+          }`}
+          style={{ opacity: shown ? 1 : 0 }}
+        >
+          <path d="M4.5 7L0 0h9z" />
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+// Small labelled connector for the yes/no branches under the decision.
+function Branch({
+  shown,
+  current,
+  label,
+}: {
+  shown: boolean;
+  current: boolean;
+  label: string;
+}) {
+  return (
+    <div
+      className="text-[10px] text-zinc-500 dark:text-zinc-400 transition-all duration-300"
+      style={{ opacity: shown ? 1 : 0, transform: shown ? "none" : "translateY(4px)" }}
+    >
+      <span className={current ? "text-amber-600 dark:text-amber-400" : ""}>↓</span>{" "}
+      {label}
+    </div>
   );
 }
 
@@ -134,14 +209,6 @@ function Box({
           {sub}
         </div>
       )}
-    </div>
-  );
-}
-
-function Down() {
-  return (
-    <div className="text-center text-zinc-400 dark:text-zinc-600 text-lg leading-none my-1">
-      ↓
     </div>
   );
 }
