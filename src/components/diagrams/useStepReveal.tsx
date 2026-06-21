@@ -135,3 +135,45 @@ export function ReplayButton({
     </div>
   );
 }
+
+// A connector that draws top→bottom as the flow reaches it, glowing amber while
+// the payload passes through, then settling to a static arrow.
+export function Arrow({
+  shown,
+  current,
+  size = "md",
+}: {
+  shown: boolean;
+  current: boolean;
+  size?: "sm" | "md";
+}) {
+  const h = size === "sm" ? "h-3" : "h-5";
+  const my = size === "sm" ? "my-0.5" : "my-1";
+  return (
+    <div className={`flex justify-center ${my}`} aria-hidden>
+      <div className={`relative ${h} w-px`}>
+        <div
+          className={`absolute inset-0 origin-top transition-transform duration-300 ease-out ${
+            current
+              ? "bg-amber-400 dark:bg-amber-500"
+              : "bg-zinc-300 dark:bg-zinc-600"
+          }`}
+          style={{ transform: shown ? "scaleY(1)" : "scaleY(0)" }}
+        />
+        <svg
+          width="9"
+          height="7"
+          viewBox="0 0 9 7"
+          className={`absolute left-1/2 -translate-x-1/2 -bottom-1 transition-opacity duration-200 ${
+            current
+              ? "fill-amber-500 dark:fill-amber-400"
+              : "fill-zinc-400 dark:fill-zinc-600"
+          }`}
+          style={{ opacity: shown ? 1 : 0 }}
+        >
+          <path d="M4.5 7L0 0h9z" />
+        </svg>
+      </div>
+    </div>
+  );
+}

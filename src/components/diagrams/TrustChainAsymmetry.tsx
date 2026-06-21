@@ -1,7 +1,7 @@
 "use client";
 
 import { Figure } from "./Figure";
-import { useStepReveal, Reveal, ReplayButton } from "./useStepReveal";
+import { useStepReveal, Reveal, ReplayButton, Arrow } from "./useStepReveal";
 
 type Locale = "ko" | "en";
 
@@ -62,9 +62,7 @@ export function TrustChainAsymmetry({ locale = "ko" }: { locale?: Locale }) {
             </div>
           </Reveal>
         </div>
-        <div className="text-center text-zinc-400 dark:text-zinc-600 text-lg leading-none my-1">
-          ↓
-        </div>
+        <Arrow shown={a.shown(1)} current={a.current(1)} />
 
         {/* Attacker rail + trust chain */}
         <div className="grid grid-cols-[auto_1fr] gap-3 items-stretch max-w-2xl mx-auto">
@@ -96,9 +94,11 @@ export function TrustChainAsymmetry({ locale = "ko" }: { locale?: Locale }) {
                   )}
                 </Reveal>
                 {i < s.layers.length - 1 && (
-                  <div className="text-center text-zinc-300 dark:text-zinc-600 leading-none">
-                    ↓
-                  </div>
+                  <Arrow
+                    shown={a.shown(i + 2)}
+                    current={a.current(i + 2)}
+                    size="sm"
+                  />
                 )}
               </div>
             ))}
@@ -106,9 +106,7 @@ export function TrustChainAsymmetry({ locale = "ko" }: { locale?: Locale }) {
         </div>
 
         {/* Outcome */}
-        <div className="text-center text-zinc-400 dark:text-zinc-600 text-lg leading-none my-1">
-          ↓
-        </div>
+        <Arrow shown={a.shown(outcomeIdx)} current={a.current(outcomeIdx)} />
         <div className="max-w-md mx-auto">
           <Reveal shown={a.shown(outcomeIdx)} current={a.current(outcomeIdx)}>
             <div className="rounded-md border border-amber-400 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 px-4 py-2 text-center text-sm font-semibold text-amber-800 dark:text-amber-200">
