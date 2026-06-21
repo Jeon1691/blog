@@ -309,6 +309,29 @@ P-256 서명은 원래 WebAuthn·Passkey·Secure Enclave·Android Keystore가 �
 
 결국 보안은 *상태*(state)가 아니라 *과정*(process)이다. "완벽하게 안전한가?"라는 이분법적 질문을 "내 위협 모델에 대해 수용 가능한 위험 수준인가?"라는 공학적 질문으로 바꾸는 것이, 이 주제에 대한 가장 정확한 답이다.
 
+## 부록 — 직접 실험으로 확인하기
+
+이 글의 핵심 주장들은 추상적 설명에 그치지 않는다. 로컬에서 직접 실험으로 확인했고, 전체 코드는 공개 저장소 [passkey-lab](https://github.com/Jeon1691/passkey-lab)에 있다.
+
+- **Passkey = P-256 키** — 브라우저 WebAuthn으로 Passkey(ES256/P-256)를 만들고 서명한 뒤, 그 서명을 `crypto.subtle.verify`로 검증했다. 개인키는 보안 영역 밖으로 나오지 않고, 나오는 것은 공개키와 서명뿐이다.
+- **Secure Enclave 서명** — Apple Silicon Mac에서 CryptoKit `SecureEnclave.P256.Signing.PrivateKey()`로 SEP 안에 키를 만들고 서명·검증했다 (`Secure Enclave available: true`, `verified locally: true`).
+- **AA 계정의 P-256 소유자 (ERC-1271)** — secp256k1 EOA 없이, P-256 공개키를 소유자로 갖는 컨트랙트가 `isValidSignature`에서 Passkey 서명에 ERC-1271 매직값 `0x1626ba7e`를 돌려준다.
+- **온체인 P-256 검증 비용** — 같은 서명을 온체인에서 검증할 때 순수 Solidity 구현은 약 **255,423 가스**로 측정됐고, RIP-7212/EIP-7951 precompile은 명세상 **3,450 가스**다. 이 약 74배 차이가 precompile이 Passkey 기반 AA를 실용화하는 이유를 그대로 보여준다.
+
+특히 브라우저 데모가 출력하는 서명을 그대로 Foundry 테스트에 넣으면, **내 실제 Passkey 서명이 컨트랙트에 의해 온체인에서 검증된다.**
+
+ERC-1271 + P-256 검증의 핵심은 짧다.
+
+```solidity
+// P256Account.sol — 소유자가 secp256k1 EOA가 아니라 P-256(Passkey) 키다.
+function isValidSignature(bytes32 hash, bytes calldata signature)
+    external view returns (bytes4)
+{
+    (bytes32 r, bytes32 s) = abi.decode(signature, (bytes32, bytes32));
+    return P256.verify(hash, r, s, qx, qy) ? bytes4(0x1626ba7e) : bytes4(0xffffffff);
+}
+```
+
 ---
 
 ### 참고 자료
@@ -331,3 +354,7 @@ P-256 서명은 원래 WebAuthn·Passkey·Secure Enclave·Android Keystore가 �
 - [ERC-7913: 주소 없는 키의 signer 표현](https://eips.ethereum.org/EIPS/eip-7913)
 - [RIP-7212: secp256r1 검증 precompile](https://github.com/ethereum/RIPs/blob/master/RIPS/rip-7212.md)
 - [EIP-7951: secp256r1 (P-256) 검증 precompile](https://eips.ethereum.org/EIPS/eip-7951)
+
+**실험 코드**
+
+- [passkey-lab](https://github.com/Jeon1691/passkey-lab) — 이 글의 개념을 직접 확인한 실험 코드 (Passkey · Secure Enclave · 온체인 P-256).

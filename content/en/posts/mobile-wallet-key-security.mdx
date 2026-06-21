@@ -309,6 +309,29 @@ The full flow looks like this. It is not a seed phrase or a secp256k1 EOA key, b
 
 In the end, security is a *process*, not a *state*. Turning the binary question "is it perfectly secure?" into the engineering question "is this an acceptable level of risk for my threat model?" is the most accurate answer to this topic.
 
+## Appendix — Verifying it hands-on
+
+The claims here aren't just description — I verified them locally, and the full code is in the public [passkey-lab](https://github.com/Jeon1691/passkey-lab) repo.
+
+- **A Passkey is a P-256 key** — I created a passkey via browser WebAuthn (ES256/P-256), signed, and verified the signature with `crypto.subtle.verify`. The private key never leaves the secure region; only the public key and signature come out.
+- **Secure Enclave signing** — on an Apple-silicon Mac, CryptoKit `SecureEnclave.P256.Signing.PrivateKey()` generated a key inside the SEP and signed/verified it (`Secure Enclave available: true`, `verified locally: true`).
+- **A P-256 owner for an AA account (ERC-1271)** — with no secp256k1 EOA, a contract whose owner is a P-256 public key returns the ERC-1271 magic value `0x1626ba7e` from `isValidSignature` for a Passkey signature.
+- **On-chain P-256 verification cost** — verifying the same signature on-chain, the pure-Solidity implementation measured about **255,423 gas**, while the RIP-7212/EIP-7951 precompile costs **3,450 gas** by spec. That ~74× gap is exactly why the precompile makes Passkey-based AA practical.
+
+Feed the browser demo's signature straight into the Foundry test and **your real Passkey signature is verified on-chain by the contract.**
+
+The heart of ERC-1271 + P-256 verification is short:
+
+```solidity
+// P256Account.sol — the owner is a P-256 (Passkey) key, not a secp256k1 EOA.
+function isValidSignature(bytes32 hash, bytes calldata signature)
+    external view returns (bytes4)
+{
+    (bytes32 r, bytes32 s) = abi.decode(signature, (bytes32, bytes32));
+    return P256.verify(hash, r, s, qx, qy) ? bytes4(0x1626ba7e) : bytes4(0xffffffff);
+}
+```
+
 ---
 
 ### References
@@ -331,3 +354,7 @@ In the end, security is a *process*, not a *state*. Turning the binary question 
 - [ERC-7913: addressless-key signer representation](https://eips.ethereum.org/EIPS/eip-7913)
 - [RIP-7212: secp256r1 verification precompile](https://github.com/ethereum/RIPs/blob/master/RIPS/rip-7212.md)
 - [EIP-7951: secp256r1 (P-256) verification precompile](https://eips.ethereum.org/EIPS/eip-7951)
+
+**Experiment code**
+
+- [passkey-lab](https://github.com/Jeon1691/passkey-lab) — the hands-on code verifying this post's concepts (Passkey · Secure Enclave · on-chain P-256).
