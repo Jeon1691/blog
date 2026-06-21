@@ -308,3 +308,26 @@ P-256 서명은 원래 WebAuthn·Passkey·Secure Enclave·Android Keystore가 �
 - **올바른 목표는 "완벽"이 아니라 "단일 실패점 제거 + 위험 분산 + 피해 한정"이다.**
 
 결국 보안은 *상태*(state)가 아니라 *과정*(process)이다. "완벽하게 안전한가?"라는 이분법적 질문을 "내 위협 모델에 대해 수용 가능한 위험 수준인가?"라는 공학적 질문으로 바꾸는 것이, 이 주제에 대한 가장 정확한 답이다.
+
+---
+
+### 참고 자료
+
+**모바일 보안 하드웨어**
+
+- Apple — [Apple Platform Security: Secure Enclave](https://support.apple.com/guide/security/secure-enclave-sec59b0b31ff/web)
+- Android — [Android Keystore system](https://developer.android.com/privacy-and-security/keystore)
+- Android — [Key and ID Attestation](https://developer.android.com/privacy-and-security/security-key-attestation)
+
+**Passkey · WebAuthn**
+
+- W3C — [Web Authentication (WebAuthn) Level 2](https://www.w3.org/TR/webauthn-2/)
+- FIDO Alliance — [Passkeys](https://fidoalliance.org/passkeys/)
+
+**계정 추상화 · 서명 검증 표준**
+
+- [ERC-4337: Account Abstraction Using Alt Mempool](https://eips.ethereum.org/EIPS/eip-4337)
+- [ERC-1271: Standard Signature Validation Method for Contracts](https://eips.ethereum.org/EIPS/eip-1271)
+- [ERC-7913: 주소 없는 키의 signer 표현](https://eips.ethereum.org/EIPS/eip-7913)
+- [RIP-7212: secp256r1 검증 precompile](https://github.com/ethereum/RIPs/blob/master/RIPS/rip-7212.md)
+- [EIP-7951: secp256r1 (P-256) 검증 precompile](https://eips.ethereum.org/EIPS/eip-7951)
