@@ -76,7 +76,7 @@ import { PasskeySigningSequence } from "@/components/diagrams/PasskeySigningSequ
 키를 "꺼낼 수 없게" 만드는 것(격리)은 네 가지 메커니즘 중 하나일 뿐이다. 현대 보안 칩은 다음을 함께 강제한다.
 
 1. **격리(Isolation)** — 개인키 비트가 보안 경계 밖 메모리에 절대 나타나지 않는다. 앱이 다루는 것은 키가 아니라 키 핸들이다.
-2. **접근 게이팅(Auth binding)** — 키 사용을 생체·패스코드 인증과 묶는다. iOS는 `kSecAccessControl`, 안드로이드는 `setUserAuthenticationRequired`. 인증 유효 범위는 *시간 창*(한 번 인증 후 N초 동안 허용)과 *건별*(서명 한 번마다 재인증)으로 나뉜다.
+2. **접근 게이팅(Auth binding)** — 키 사용을 생체·패스코드 인증과 묶는다. iOS는 `kSecAccessControl`, 안드로이드는 `setUserAuthenticationRequired`. 인증 유효 범위는 *시간 기반*(한 번 인증 후 N초 동안 허용)과 *건별*(서명 한 번마다 재인증)으로 나뉜다.
 3. **레이트 리밋과 소거(Rate limiting / wipe)** — 무차별 대입을 하드웨어 카운터로 지연시키고, 임계치를 넘으면 데이터를 소거한다. iOS는 패스코드 시도 간 지수적 지연과 자동 소거 옵션, 안드로이드는 Gatekeeper·Weaver throttling과 StrongBox의 모노토닉 카운터를 쓴다.
 4. **어테스테이션(Attestation)** — 키가 실제로 하드웨어에 backing됐음을 인증서 체인으로 증명한다. 안드로이드 Key Attestation, iOS App Attest가 여기 해당한다. 서버가 "이 키는 진짜 보안 칩 안에 있다"를 원격으로 검증할 수 있다.
 
