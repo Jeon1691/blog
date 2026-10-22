@@ -2,6 +2,19 @@ name = "develicit-views"
 main = "src/index.js"
 compatibility_date = "2026-05-01"
 
+[build]
+# Keep direct Wrangler dev/deploy builds aligned with published content.
+command = "node scripts/generate-post-slugs.mjs"
+
 [[kv_namespaces]]
 binding = "VIEWS"
 id = "51cf291a941b469ca4e7b45b256006be"
+
+[[ratelimits]]
+name = "VIEW_RATE_LIMITER"
+# Reserve this positive integer namespace for blog view increments in this account.
+namespace_id = "2026102201"
+
+[ratelimits.simple]
+limit = 30
+period = 60

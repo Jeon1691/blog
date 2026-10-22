@@ -4,9 +4,12 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy"
+    "deploy": "wrangler deploy",
+    "test": "node --test test/*.test.mjs",
+    "allowlist:generate": "node scripts/generate-post-slugs.mjs",
+    "allowlist:check": "node scripts/generate-post-slugs.mjs --check"
   },
   "devDependencies": {
-    "wrangler": "^3.84.0"
+    "wrangler": "^4.151.3"
   }
 }

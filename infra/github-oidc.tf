@@ -25,9 +25,10 @@ data "aws_iam_policy_document" "github_trust" {
     }
 
     condition {
-      test     = "StringLike"
+      test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repo}:*"]
+      # Matches deploy.yml's main branch, including manual runs on main.
+      values = ["repo:${var.github_repo}:ref:refs/heads/main"]
     }
   }
 }

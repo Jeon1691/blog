@@ -1,5 +1,7 @@
-export const locales = ["ko", "en"] as const;
-export type Locale = (typeof locales)[number];
+import supportedLocales from "./supported-locales.json";
+
+export type Locale = keyof typeof supportedLocales;
+export const locales = Object.keys(supportedLocales) as Locale[];
 
 export const defaultLocale: Locale = "ko";
 

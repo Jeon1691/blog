@@ -61,6 +61,28 @@ resource "aws_cloudfront_response_headers_policy" "site" {
   name = "${replace(var.domain, ".", "-")}-security-headers"
 
   security_headers_config {
+    content_security_policy {
+      # Static Next.js hydration and the theme bootstrap use inline scripts.
+      # Pagefind needs WebAssembly and a blob worker, but not JS unsafe-eval.
+      # AdSense is disabled in site.ts; review this policy before enabling it.
+      content_security_policy = join("; ", [
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://giscus.app",
+        "script-src-attr 'none'",
+        "style-src 'self' 'unsafe-inline'",
+        "img-src 'self' data: https:",
+        "font-src 'self' data:",
+        "connect-src 'self' https://develicit-views.develicit.workers.dev",
+        "frame-src https://giscus.app",
+        "worker-src 'self' blob:",
+        "object-src 'none'",
+        "base-uri 'none'",
+        "form-action 'self'",
+        "frame-ancestors 'none'",
+        "upgrade-insecure-requests",
+      ])
+      override = true
+    }
     content_type_options {
       override = true
     }
