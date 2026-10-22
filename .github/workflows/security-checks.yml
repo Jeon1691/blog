@@ -1,0 +1,50 @@
+name: security-checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  blog:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9.15.4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm test
+      - run: pnpm typecheck
+      - run: pnpm audit --audit-level high
+      - run: pnpm build
+
+  views-worker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9.15.4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            views-worker/pnpm-lock.yaml
+      # The allowlist uses the same frontmatter parser as the blog build.
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm --dir views-worker install --frozen-lockfile --ignore-scripts
+      - run: pnpm --dir views-worker allowlist:check
+      - run: pnpm --dir views-worker test
+      - run: pnpm --dir views-worker audit --audit-level high
+      - run: pnpm --dir views-worker exec wrangler deploy --dry-run --outdir /tmp/blog-worker-dist
