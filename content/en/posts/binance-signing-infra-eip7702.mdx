@@ -1,0 +1,374 @@
+---
+title: The Keys Were Safe, Yet $6.3 Billion Vanished — The Signing-Delegation Paradox and EIP-7702 in the Binance Hack
+description: In October 2026, roughly $6.3 billion drained out of Binance's hot wallets. It was neither a private-key leak nor a protocol bug. Following the on-chain record, this piece traces how a compromise of the signing infrastructure and an EIP-7702 delegation fit together.
+date: 2026-10-31
+tags: [security, blockchain, wallet, EIP-7702, incident analysis]
+---
+
+import { BinanceHackTimeline } from "@/components/diagrams/BinanceHackTimeline";
+import { SigningInfraBoundary } from "@/components/diagrams/SigningInfraBoundary";
+import { AuthNonceOrdering } from "@/components/diagrams/AuthNonceOrdering";
+import { WithdrawalPipeline } from "@/components/diagrams/WithdrawalPipeline";
+import { UniswapPremium } from "@/components/diagrams/UniswapPremium";
+import { SigningPolicyLayers } from "@/components/diagrams/SigningPolicyLayers";
+
+> **TL;DR** — Starting at 20:05 UTC on October 29, 2026, about \$6.3 billion left Binance hot wallets across 11 chains in roughly 20 minutes — the largest crypto theft on record. Binance said it found **no evidence of a private-key leak**. The attacker didn't steal the keys; they fed the transactions they wanted into **the system that signs with those keys**. On Ethereum, an EIP-7702 delegation turned a hot wallet into a "sweeper" for 3 hours and 49 minutes.
+
+## 1. What happened — the officially confirmed scope
+
+According to Binance's official notice:
+
+- Through a compromised **DevOps engineer's laptop**, the attacker reached an internal **service container** and submitted unauthorized withdrawal transactions from there.
+- There is no evidence that any wallet private key leaked.
+- Losses are about \$6.3 billion, of which about \$3 billion has been frozen. Binance will cover all losses from the SAFU fund and company funds.
+
+Binance later said it had found **"additional breach points"** beyond the laptop. Co-CEO Richard Teng said the EIP-7702 delegation **"did not pass through our normal approval controls."**
+
+> **Not yet public** — how the laptop was first infected, what the additional breach points were, and what authority the service container held over the signing system remain unknown.
+
+## 2. A 20-minute timeline
+
+<BinanceHackTimeline locale="en" />
+
+## 3. The keys were safe — the signing-delegation paradox at exchange scale
+
+A phone's Secure Enclave never lets a wallet key out. Yet if malware *asks it to sign a transaction of its choosing*, the secure element signs that request just the same. The key stays confidential while the funds are drained — the [signing-delegation paradox](/en/posts/mobile-wallet-key-security).
+
+The Binance incident is that paradox playing out at exchange scale. Side by side:
+
+| Layer | Mobile wallet | Binance hot wallet |
+| --- | --- | --- |
+| Key custody | Secure Enclave / StrongBox | HSM, MPC, or similar signing system (exact setup undisclosed) |
+| Who requests signatures | Wallet app | Internal service container |
+| What the attacker controlled | Malware deceiving the app or the user | Engineer laptop → container |
+| Result | Key intact, funds stolen | Key intact, funds stolen on 11 chains |
+
+<SigningInfraBoundary locale="en" />
+
+Blockaid's CEO called it **"key misuse, not key theft."** Wallets on the other 10 chains — each with different key types and signing schemes — all sent funds via *validly signed ordinary transactions* within about 30 minutes. Binance's second Ethereum hot wallet also sent \$174 million in nine ordinary transactions, no delegation involved. Phishing could explain Ethereum alone, so both TRM and Elliptic conclude the attacker was able to **issue commands directly to the hot-wallet signing infrastructure**.
+
+> **Key insight** — "No private key was leaked" does not mean "safe." The security boundary must be drawn not around **where the key lives**, but around **every path that can request a signature**.
+
+## 4. The EIP-7702 model — delegation designators and the nonce rule
+
+EIP-7702 (part of the 2025 Pectra upgrade) lets an EOA hand its code over to a smart contract through a signed authorization.
+
+- An authorization is a `(chain_id, address, nonce, y_parity, r, s)` tuple, submitted inside the `authorization_list` of a type-4 transaction.
+- Once applied, a **delegation designator** `0xef0100 || address` is written into the EOA's code slot. Any call to the EOA then runs `address`'s code in the EOA's context (its balance and storage).
+- The delegation **persists until it is replaced by a new authorization or cleared with `address = 0x0`.**
+- The submitter and the authorization signer can be different accounts. In other words, **anyone holding the signature can submit it.**
+
+The part of the processing rule that matters here is the nonce check.
+
+```python
+# EIP-7702 authorization processing (simplified from the spec)
+for auth in tx.authorization_list:
+    authority = ecrecover(auth)
+    if auth.nonce != get_nonce(authority):
+        continue                      # a failed authorization is skipped silently (the tx continues)
+    set_code(authority, b"\xef\x01\x00" + auth.address)
+    increment_nonce(authority)        # nonce +1 each time one is applied
+```
+
+Two properties matter.
+
+1. **A failed authorization does not revert the transaction.** So you can include many authorizations with different nonces and expect exactly one to match at execution time.
+2. **Each applied authorization bumps the nonce by one.** So the *order* of the authorizations changes the outcome (§5.2).
+
+## 5. Anatomy of the attack — what the chain shows
+
+What the public reports leave out is still sitting in the on-chain record. Following the attacker's wallet and Binance 14 block by block reveals the whole operation.
+
+### 5.1 Thirty-six hours of preparation
+
+The attacker EOA (`0x7c86…5ca0`) sent 23 transactions in total, nonces 0 through 22.
+
+| Time (UTC) | Nonce | Activity |
+| --- | --- | --- |
+| 10-29 02:28 | 0 | Test contract v1 deployed |
+| 13:51~14:24 | 1~4 | Delegations on two test wallets, sweep tested |
+| 15:59 | 5 | Final sweeper (`0x63e8…6fAe`) deployed |
+| 16:20~16:47 | 6~9 | Final rehearsal on a third wallet (delegate → sweep → `withdrawETH`) |
+| 20:20:59 | 10 | **Binance 14 delegation** |
+| 20:24~23:56 | 11~22 | Twelve sweeps and withdrawals |
+
+Funding came from three Tornado Cash 0.1 ETH pool withdrawals. Two hours before the attack, a separate gas wallet (`0xe4f9…74cd`) sent 1.08 ETH; its first deposit, too, came from the Tornado 0.1 ETH pool. The sweeper's bytecode hard-codes `authorizedCaller()` to the attacker EOA.
+
+> **Pattern** — small Tornado top-ups → testing → rehearsal → batch execution of pre-signed authorizations. TRM sees the same sequence as in the Bybit and KelpDAO incidents.
+
+### 5.2 Fifty authorizations, in descending order
+
+<AuthNonceOrdering locale="en" />
+
+Delegation transaction `0xad99264d…051298b` carries 50 authorizations. Every one targets the sweeper, and their nonces run consecutively from 18914775 to 18914824.
+
+A Binance hot wallet processes withdrawals nonstop, so its nonce never stops climbing. The attacker therefore obtained authorizations for 50 consecutive nonces, betting that one of them would match. But the order the authorizations were packed in reveals something more interesting.
+
+- The authorizations were in **descending nonce order** (824 → 775).
+- In the same block, at index 133, Binance sent its own transaction with nonce 18914808; the attack transaction sat at index 138. So the authorization that actually applied was **18914809 alone**, and the nonce stood at 18914810 after the block.
+
+Why pack them backwards? In ascending order, once 809 applied the nonce would become 810, the next authorization (810) would match and apply too, and so on up to 824 — a 16-step jump in the nonce. That would have invalidated every withdrawal Binance had already signed (nonces 810–824), very likely tripping operational alerts at once. In descending order, after one authorization applies, every remaining one has a lower nonce and fails silently. It is, in effect, **an ordering that minimizes the footprint**.
+
+The gas used, 1,258,562, fits this picture. Base cost 21,000 plus 50 authorizations × 25,000, minus a 12,500 refund for the one applied to an already-existing account, lands almost exactly there. The 49 failed authorizations still paid gas.
+
+So when were these authorizations signed? Binance 14's nonce passed 18914775 at 20:17:47 (block 26300737) — the start of the signed range matches the live nonce at that moment. The wallet processes roughly 10 transactions a minute, so 50 nonces buy 4–5 minutes of headroom. The attacker most likely obtained the authorizations from the signing system **in real time, about three minutes before submitting them**. That fits TRM's view that "access was time-limited, or signatures had to be requested through the system."
+
+### 5.3 Three hours and 49 minutes — twelve sweeps
+
+| Time (UTC) | Function | Result |
+| --- | --- | --- |
+| 20:24:23 | `sweep` | 167,464 ETH + 63 tokens (including 1,615.41 million USDT) |
+| 20:41:23 / 20:59:47 | `callExecute` | 780 million + 43 million USDC pulled from Binance smart account `0xee7a…4055` |
+| 21:04 / 21:44 / 22:39 | `sweep` | 1,700 / 370 / 128 ETH plus 23, 14, and 122 tokens |
+| 23:36~23:54 | `sweep` ×6 | Balance below 1 ETH, nothing moved (automated polling) |
+| 23:56:47 | `sweep` | 2,962 ETH |
+
+- Sweeps moved about **172,624 ETH** in total, leaving exactly 1 ETH behind each time.
+- `callExecute` exploited the fact that Binance 14 held executor rights over a separate smart account. The delegated EOA's *other privileges* passed to the attacker along with it — the exposure did not stop at the wallet balance.
+- The 2,962 ETH swept at 23:56 was **a deposit that arrived an hour and 40 minutes after withdrawals were suspended (22:15)**. Binance's internal deposit-consolidation pipeline kept routing funds into a wallet the attacker already controlled.
+
+### 5.4 Revocation — Binance never lost its signing ability
+
+The delegation was cleared by `0xafbf94c9…` (block 26301896, 10-30 00:10:35). It was **a transaction sent by Binance 14 itself**, with the authorization pointing at `0x0`.
+
+- It is a *self-sponsored* authorization: sender and authorization signer are the same account. The transaction nonce is 18914903 and the authorization nonce 18914904 — because the sender's nonce is incremented before authorizations are processed, the authorization must use nonce + 1.
+- Binance sent 93 transactions from this wallet while it was delegated; the last at 00:07:11.
+- Revoking the delegation with its own key means Binance **never lost its signing ability**, consistent with the official statement that no private key leaked.
+
+## 6. The intrusion mechanism — reasoning backward from the evidence
+
+Binance has not disclosed the path from laptop to signature. Still, the evidence so far narrows the possibilities considerably. Let's start from the typical structure of an exchange hot wallet and follow which paths the evidence allows and which it rules out.
+
+### 6.1 The typical exchange withdrawal pipeline
+
+<WithdrawalPipeline locale="en" />
+
+A large exchange's hot wallet is usually split into these layers.
+
+| Layer | Role | If the attacker controls it |
+| --- | --- | --- |
+| Withdrawal service | Creates user-withdrawal and internal-transfer requests | Can create requests, but they still have to pass the policy engine |
+| Risk / policy engine | Address whitelists, amount limits, velocity limits, anomaly detection | Effectively decides what gets signed |
+| Signing orchestrator | Converts requests into chain-specific formats and hands them to signers | Reaches every chain at once |
+| Per-chain signers | HSM / MPC nodes sign with the real keys | Protects the key, but signs whatever request arrives |
+| Ops path (CI/CD, cluster) | Deploys and operates all of the above | Can change code or config in any layer above |
+
+[Just like the Secure Enclave](/en/posts/mobile-wallet-key-security) in a phone wallet, a signer is a device that never exports its key but *signs the requests it receives*. So the attacker's target is not the key but **some layer in front of the signer**.
+
+### 6.2 Constraints the evidence imposes
+
+| Observed fact | Basis | Constraint on the mechanism |
+| --- | --- | --- |
+| No evidence of key leakage; Binance signed 93 transactions during the delegation and revoked it itself | Binance, on-chain | What the attacker gained was **the right to request signatures**, not the keys |
+| Wallets on 11 chains with different curves (secp256k1, ed25519) all drained within ~30 minutes | TRM · Elliptic | Not per-chain signers picked one by one, but **a chain-agnostic upper layer** |
+| Other chains drained via *validly signed ordinary withdrawals* | TRM · Elliptic | The attacker used **request formats the signing system normally accepts** |
+| The EIP-7702 delegation "did not pass through normal approval controls" | Richard Teng | The policy engine was **bypassed**, or the request was **in a format it couldn't interpret** |
+| 50 authorizations obtained ~3 minutes before submission; chainId 1 (mainnet only) | On-chain | **Live signing-API access**, not signatures stolen in advance; access may have been time-limited |
+| 36 hours of testing and rehearsal; exact authorization format used | On-chain | The attacker **knew the internal signing API's spec beforehand** (a reconnaissance period) |
+| "Additional breach points"; attacker tooling with a "self-destruct mechanism" | Binance | A **multi-stage intrusion**, not a single click; trace removal delays forensics |
+
+### 6.3 Comparing hypotheses
+
+| Hypothesis | Description | Supporting evidence | Inconsistent or uncertain |
+| --- | --- | --- | --- |
+| **H1. Direct signing-API calls with service credentials** | The compromised container's service-account token or mTLS certificate is used to call the signing orchestrator directly. Possible if the policy engine sits *beside* the signing path rather than *in front of* it | Simultaneous drain on 11 chains; the official account ("withdrawals submitted from a container"); live access | Should have been blocked if the signer re-checked policy itself |
+| **H2. Abuse of a raw-digest signing path** | The signing API had a path that signs a 32-byte hash rather than a structured transaction, and a 7702 authorization digest was fed into it (§6.5) | "7702 didn't pass approval controls"; the contrast with ordinary-withdrawal formats on other chains | Whether such an API existed is undisclosed |
+| **H3. Tampering with policy-engine settings** | Whitelists and limits changed so withdrawals to attacker addresses pass | Ordinary withdrawals were "validly signed" | The official wording is *bypassed*, not *passed*; no mention of config changes |
+| **H4. Poisoned deployment path (CI/CD)** | Malicious code planted in a signing-related service image or config via DevOps privileges — the same family as the Safe front-end tampering in the Bybit hack | Entry point was a "DevOps" endpoint; self-destruct mechanism; additional breach points | An image change would show up in deployment records; not mentioned |
+
+The simplest picture that satisfies all these constraints at once is **H1 + H2**: obtain cloud or cluster credentials from the DevOps endpoint, get into a withdrawal-related service container, and use the signing-request rights that container already had. On the other chains the requests took the form of ordinary withdrawals (H1); on Ethereum, the attacker got an authorization digest signed that the policy engine could not interpret (H2). H4 fits the "DevOps" entry point well enough that it can't be ruled out. H3 fits the official wording least.
+
+### 6.4 Initial access — TraderTraitor's known playbook
+
+How the laptop was infected has not been disclosed. But the playbook of TraderTraitor, the group named as the likely culprit, is on the official record.
+
+| Incident | Initial access | Lateral movement |
+| --- | --- | --- |
+| CISA advisory (2022) | Recruitment-themed spear-phishing aimed at sysadmin and **DevOps** staff; trojanized crypto apps | — |
+| DMM Bitcoin (2024) | Posing as a LinkedIn recruiter, lured a Ginco employee into running a malicious Python script as a GitHub "pre-employment test" | Used stolen **session cookies** to impersonate the employee, reach internal systems, and manipulate a transaction |
+| Bybit (2025) | A Safe developer's macOS machine infected via a Docker project (social engineering suspected) | Hijacked active **AWS session tokens** to bypass MFA and alter Safe's front-end code; then cleared Bash history and removed the malware |
+
+All three follow the same arc: **developer/ops endpoint → stolen session credentials → lateral movement disguised as a legitimate user**. A session token has already passed MFA, so stealing one neutralizes MFA. The way the Bybit attackers wiped their traces also resembles the "self-destruct mechanism" Binance mentioned this time. Whether Binance's laptop went down the same road is a question for the post-mortem.
+
+### 6.5 Why one authorization signature is more dangerous than thousands of withdrawals
+
+Signing an EIP-7702 authorization means signing *a different message* than a transaction.
+
+```text
+EIP-1559 transaction signature:  keccak256(0x02 || rlp([chain_id, nonce, ..., to, value, data, ...]))
+EIP-7702 authorization signature: keccak256(0x05 || rlp([chain_id, address, nonce]))
+```
+
+To a signer, both are just 32-byte hashes. If the policy engine checks *decoded transactions* (recipient, amount, calldata), an authorization digest has no recipient and no amount to check. If the signing API offers a path that accepts raw hashes, an authorization signature looks to the policy engine **like nothing at all**. That is why H2 fits the official wording ("did not pass through approval controls") so well.
+
+And the authority each signature grants is in a different league.
+
+| | Withdrawal signature | EIP-7702 authorization signature |
+| --- | --- | --- |
+| Scope | One asset, one amount, once | **Every asset** in the wallet, now and **all future deposits** |
+| Duration | Done once executed | Persists **until revoked** |
+| Side privileges | None | Every other contract role the wallet holds (§5.3 `callExecute`) |
+| Visibility to the policy engine | Recipient and amount can be checked | No notion of recipient or amount |
+
+> **Key insight** — a withdrawal signature is a signature over an *amount*; a delegation signature is a signature over *the account itself*. If the signing policy only looked at amounts, the most dangerous signature was the least scrutinized.
+
+## 7. The freeze race — 37 minutes and 200 million USDT
+
+| Receiving address | USDT blacklist | USDC blacklist | Current balance (frozen) |
+| --- | --- | --- | --- |
+| `0x5227…2f8c` | 21:01:35 | 21:04:59 | 1,175.46 million USDT · 823 million USDC |
+| `0xa97b…8d10` | — | 10-30 04:11:35 | ~120,000 USDC |
+
+- In the **37 minutes** from the first sweep (20:24) to Tether's freeze (21:01), about 644 million USDT got out.
+- The 21:44 sweep **sent 200.4 million USDT to an address that was already frozen.** The USDT contract checks the blacklist only for the *sender*, not the recipient, so those funds were locked the moment they arrived.
+- The attacker didn't switch receiving addresses until 22:39, an hour and 38 minutes after the freeze.
+
+> **Automation failure on both sides** — Binance kept sending deposits into a compromised wallet, and the attacker kept sending funds to a frozen address. Both were running *automation that never checked the other side's state*.
+
+Native assets that can't be frozen (BTC, XRP, SOL, NEAR) have seen no freezes at all. By Elliptic's count, the attacker still holds about \$3.33 billion. A freeze *blocks disposal*; it is not recovery.
+
+## 8. Market side effects — a 38% premium and MEV
+
+<UniswapPremium locale="en" />
+
+As the attacker rushed to swap USDT for ETH before the freezes landed, a wide gap opened between DEX and CEX prices. Elliptic found the attacker chose speed over price, accepting losses of 12–26% versus market.
+
+Block by block, the Uniswap v3 WETH/USDT 0.05% pool tells the story: from about 2,320 USDT before the hack, the price began rising at 20:36, passed 2,917 at 20:49, peaked at **3,328.6 at 21:09:11 (block 26300992)**, and was back to normal by 21:36. That matches, to the minute, HOW TO ONCHAIN's report of "a 38% premium over market at 21:09."
+
+According to the same analysis, most of that spread went to MEV bots. Most of the \$44.9 million in WETH arbitrage PnL went to 78 bots, and ETH priority tips that night reached 10,251 ETH — about 2,200 times the 4.6 ETH of the same window the day before. **The attacker's haste became profit for the bots that bought block space.**
+
+## 9. Attribution — what is and isn't established
+
+TRM Labs, with "high confidence," and Chainalysis and Elliptic, through their own analyses, all point to North Korea's **TraderTraitor**. The FBI said only that it is "aware of the incident and engaged with partners," and **has not formally attributed it.**
+
+| Evidence | Counterpoint |
+| --- | --- |
+| The destination address on the Tron → THORChain/Hyperlane route is the same one that received funds from the September 2026 Bitget hack | The overlap is only about \$39,000 — evidence of a shared laundering network, not necessarily the same hackers |
+| The small-Tornado-top-up → rehearsal → batch pre-signed execution pattern matches Bybit | The attacker sat on \$2.6 billion in stablecoins until it was frozen, unlike the fast disposal typical of North Korean groups |
+| A track record of targeting exchange engineers with fake job offers (DMM, Bybit) | The laptop's initial infection vector is still undisclosed |
+
+## 10. Comparison with Bybit (2025)
+
+| | Bybit (Feb 2025) | Binance (Oct 2026) |
+| --- | --- | --- |
+| Loss | ~\$1.5 billion | ~\$6.3–6.4 billion |
+| Entry point | Safe\{Wallet\} developer PC | DevOps engineer laptop + additional breach points |
+| What was manipulated | Transaction contents approved by multisig signers | Hot-wallet signing infrastructure (11 chains) |
+| Common thread | Not the cryptography, but **the infrastructure and people around the wallet** were breached | Same |
+
+In both cases, what broke was not "who signs" but **"who decides what gets signed."**
+
+## 11. Defensive design — treating signing infrastructure as a security boundary
+
+<SigningPolicyLayers locale="en" />
+
+| Mitigation | Stage it would have stopped here | Trade-off |
+| --- | --- | --- |
+| Signers refuse raw hashes and **decode structured requests themselves** before signing | §6.5 authorization-digest bypass (H2) | A parser per chain and message format |
+| Policy checked **again** at the signer (policy engine placed in series, in front of the signing path) | §6.3 direct calls with service credentials (H1) | Latency; policy maintained twice |
+| Signing-request rights split per service and per chain, with short-lived credentials | §6.3 one container reaching 11 chains | Credential-issuance infrastructure |
+| Default-deny EIP-7702 authorizations in signing policy | §5.2 the delegation itself | Legitimate delegations (e.g., AA migration) need a separate approval flow |
+| Treat a batch request for authorizations across many nonces as an indicator of compromise | §5.2 the 50-authorization batch | Almost never seen in normal ops, so cheap |
+| Real-time monitoring of treasury delegation state + a pre-tested revocation runbook | §5.3 delegation lasting 3h49m → minutes | Monitoring infrastructure |
+| Automatically halt deposit consolidation when a delegation is detected | §5.3 the 23:56 sweep | Deposit delays on false positives |
+| Separate signing infrastructure by chain and wallet tier | §3 simultaneous drain on 11 chains | Operational complexity |
+| Separate operator endpoints from everyday work; separate approval for privilege escalation | §1 initial access | Developer productivity |
+
+Monitoring for delegation is simpler than it sounds: just watch for an EOA that should have no code suddenly carrying a delegation designator.
+
+```ts
+// EIP-7702 delegation monitor for treasury EOAs (concept code)
+const DELEGATION_PREFIX = "0xef0100"; // EIP-7702 delegation designator prefix
+const POLL_INTERVAL_MS = 12_000;      // check once per Ethereum block (~12 s)
+
+async function watchDelegation(eoa: `0x${string}`, alert: (target: string) => void) {
+  for (;;) {
+    const code = await client.getCode({ address: eoa });
+    if (code?.startsWith(DELEGATION_PREFIX)) {
+      alert(`0x${code.slice(DELEGATION_PREFIX.length)}`); // delegation target address
+    }
+    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+  }
+}
+```
+
+In production, rather than polling, it is faster to recover the signers of `authorizationList` entries in each new block's type-4 transactions and match them against your addresses — that flags an authorization the moment it lands in a block.
+
+> **Practical recommendation** — "who can request a signature" matters more than "where the key lives." The signing policy engine is as important a security boundary as the key-custody hardware, and signatures that *change the nature of the account itself*, like EIP-7702, must be handled at a different tier from ordinary withdrawals.
+
+## 12. What's established and what remains
+
+What's established is clear. The attacker went through a DevOps engineer's laptop into an internal service container and submitted unauthorized withdrawals from there. Binance did not lose its private keys. On Ethereum, EIP-7702 authorizations spanning 50 nonces delegated Binance 14 to a sweeper, and 3 hours and 49 minutes later Binance revoked the delegation with its own key.
+
+The open questions are just as clear. How was the laptop infected? What were the additional breach points? Through what path did the signing requests bypass the policy engine? Was the signing system an HSM or MPC? Is the culprit really TraderTraitor? Binance's post-mortem needs to answer these — above all, which of the hypotheses in §6 was right.
+
+## 13. Conclusion
+
+> Binance didn't lose its keys. It lost *the authority to decide what gets signed*.
+
+- **The keys didn't leak, but the funds were stolen.** The signing-delegation paradox happened at exchange scale.
+- **The security boundary must extend from the key to every signing-request path.** The whole chain — laptop → container → signing system — belongs in the threat model.
+- **A withdrawal signature is a signature over an amount; a delegation signature is a signature over the account.** If signing policy only looks at amounts, the most dangerous signature gets the least scrutiny.
+- **Response speed sets the size of the loss.** Tether's 37 minutes, 3 hours 49 minutes until revocation, and deposits that kept flowing after withdrawals were halted show the difference.
+
+So was EIP-7702 the cause? The other 10 chains were drained without it. On Ethereum, though, a single delegation signature handed over the entire wallet and every deposit still to come, turning the same intrusion into a 3-hour-49-minute *account takeover*.
+
+In the end, the question isn't "is EIP-7702 dangerous?" but **"does our signing system know how much a signature weighs?"** A signature that moves an amount and a signature that hands over an account may look like the same 32-byte hash, but they can never sit in the same tier. Security extends to knowing what you're signing.
+
+## Appendix — Verifying it hands-on
+
+Every on-chain claim in this piece can be reproduced with public RPC alone. All you need is an Ethereum node that serves archive queries.
+
+- **When the delegation was set and cleared** — call `eth_getCode` on Binance 14 (`0x28C6…1d60`) across block numbers and binary-search: you'll find the block where the code became `0xef010063e8…` (26300753) and the block where it returned to `0x` (26301896).
+- **The 50 authorizations and their order** — read the nonces from the delegation transaction's `authorizationList`: they descend from 18914824 to 18914775.
+- **Every attacker transaction** — recursively locate only the blocks where the attacker EOA's `eth_getTransactionCount` changes, and you can rebuild nonces 0–22 without an indexer.
+- **Freeze times** — `eth_call` USDT's `getBlackListStatus(address)` and USDC's `isBlacklisted(address)` across blocks to find the blacklisting block.
+- **The Uniswap peak** — read `sqrtPriceX96` from the pool's `slot0()` and convert it to a price to see 3,328.6 at 21:09:11.
+
+---
+
+## Sources
+
+Section numbers in parentheses show where each source is used.
+
+**Official statements**
+
+- Binance — [Security Incident Update (2026-10-30)](https://www.binance.com/en/support/announcement/detail/c5a8729a97ac486d963784d96c5642d7) (§1, §12)
+
+**On-chain analysis reports**
+
+- TRM Labs — [North Korea Steals USD 6.36 Billion From Binance in the Largest Hack in History](https://www.trmlabs.com/resources/blog/north-korea-steals-usd-6-36-billion-from-binance-in-the-largest-hack-in-history) (§2, §3, §5, §6, §9)
+- Elliptic — [The largest theft in history: DPRK behind the \$6.4 billion Binance hack](https://www.elliptic.co/insights/binance-largest-hack-in-history/) (§2, §3, §7, §8, §9)
+- Chainalysis — [The \$6.4 Billion Binance Exploit: Tracing the North Korea Link](https://www.chainalysis.com/blog/binance-exploit-latest-findings-and-response/) (§9)
+- HOW TO ONCHAIN — [Behind the Binance hack: arbitrage and MEV (Korean)](https://how2onchain.substack.com/p/251) (§8)
+
+**Coverage**
+
+- Cointelegraph — [Live updates: Binance hack](https://cointelegraph.com/news/live-updates-binance-63b-hack-linked-to-north-koreas-tradertraitor) (§1, §3, §6 — Richard Teng and Blockaid CEO remarks)
+- CryptoSlate — [Binance uncovers more breach points in \$6 billion hack](https://cryptoslate.com/binance-breach-points-6-billion-hack/) (§1, §6)
+- CNN — [North Korea suspected to be behind biggest-ever heist](https://www.cnn.com/2026/10/30/tech/binance-crypto-heist-hnk-intl) (§9 — FBI statement)
+- BleepingComputer — [Binance links \$6.3 billion crypto theft to compromised DevOps laptop](https://www.bleepingcomputer.com/news/security/binance-links-63-billion-crypto-theft-to-compromised-devops-laptop/) (§1)
+
+**TraderTraitor's past playbook**
+
+- CISA — [AA22-108A: TraderTraitor: North Korean State-Sponsored APT Targets Blockchain Companies](https://www.cisa.gov/news-events/cybersecurity-advisories/aa22-108a) (§6.4)
+- FBI — [Identification of North Korean Cyber Actors, Tracked as TraderTraitor, Responsible for Theft of \$308 Million USD from Bitcoin.DMM.com](https://www.fbi.gov/news/press-releases/fbi-dc3-and-npa-identification-of-north-korean-cyber-actors-tracked-as-tradertraitor-responsible-for-theft-of-308-million-from-bitcoindmmcom) (§6.4)
+- Cointelegraph — [Safe Wallet releases Bybit hack post-mortem](https://cointelegraph.com/news/safe-wallet-releases-bybit-hack-post-mortem) (§6.4, §10)
+
+**Standards**
+
+- [EIP-7702: Set Code for EOAs](https://eips.ethereum.org/EIPS/eip-7702) (§4, §6.5)
+
+**On-chain evidence (queried directly)**
+
+- Delegation transaction — [0xad99264d…051298b](https://etherscan.io/tx/0xad99264d5532ae0dd04b2004eebda05f25657e70dacb764f7ac8d4ccd051298b) (§5.2)
+- Revocation transaction — [0xafbf94c9…](https://etherscan.io/tx/0xafbf94c92a8d749988411669fa14d4f8866d9b4420b4ebd299f28e958dac7209) (§5.4)
+- Binance 14 — [0x28C6…1d60](https://etherscan.io/address/0x28C6c06298d514Db089934071355E5743bf21d60) (§5)
+- Attacker EOA — [0x7c86…5ca0](https://etherscan.io/address/0x7c8601d4645b93cea45f71e118a729332e6b5ca0) (§5.1, §5.3)
+- Sweeper contract — [0x63e8…6fAe](https://etherscan.io/address/0x63e842B054Bd624a465454D533C33F573e9c6fAe) (§5.1)
+- Frozen receiving address — [0x5227…2f8c](https://etherscan.io/address/0x5227f603c1ee34ce3c06efe6477003bdfccb2f8c) (§7)
+- Uniswap v3 WETH/USDT 0.05% pool — [0x11b8…97F6](https://etherscan.io/address/0x11b815efB8f581194ae79006d24E0d814B7697F6) (§8)
+
+**Related post**
+
+- [Can Storing Your Wallet Keys on a Phone Ever Be Perfectly Secure?](/en/posts/mobile-wallet-key-security) — the signing-delegation paradox (§3, §6.1)
