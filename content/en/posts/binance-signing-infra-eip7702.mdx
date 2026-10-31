@@ -88,10 +88,16 @@ The [attacker EOA](https://etherscan.io/address/0x7c8601d4645b93cea45f71e118a729
 
 | Time (UTC) | Nonce | Activity |
 | --- | --- | --- |
-| 10-29 02:28 | [0](https://etherscan.io/tx/0x6b76e8748ba1c6bc81e674c830a0b3603db6bde04ec4bd4a2d3126c1a12706d8) | Test contract v1 deployed |
-| 13:51~14:24 | • [1](https://etherscan.io/tx/0x16b5acc35a82d194aadb21a4a56d666310fe83982c387c974f4796275f499dca)<br />• [2](https://etherscan.io/tx/0xec5af21dc34fc8a3ac131f694aa0df5b27c0525ea3a71d97daa7e597abcb21d9)<br />• [3](https://etherscan.io/tx/0xa2e0cd4123cf4463cf43685232142d680e9994f5bd29f0540bf977a158216c4c)<br />• [4](https://etherscan.io/tx/0x6aaae5bcb5e0bafd1e79e70670864f8f726624d50d99d16152c5e684f571ddf4) | Delegations on two test wallets, sweep tested |
-| 15:59 | [5](https://etherscan.io/tx/0x97408e7562eb2b28efcd24ba01609607b5749bc89448d007fa8b50ecf290329c) | Final [sweeper](https://etherscan.io/address/0x63e842B054Bd624a465454D533C33F573e9c6fAe) deployed |
-| 16:20~16:47 | • [6](https://etherscan.io/tx/0xb2148eb825cac75efe0ae7fb5c319e6b66df62631738ba252185960e50dc5782)<br />• [7](https://etherscan.io/tx/0x7c5206cb7aa77ce5b54f030e94ad127af0184e856689526602ffcd21a238e95d)<br />• [8](https://etherscan.io/tx/0x9c2dbed15322072e35e767c0c9b4cd962abf58fe51937e62a7020c742b834f2f)<br />• [9](https://etherscan.io/tx/0x2b8eb62a32408e96bd7cb6740ede11a054549581534de5d5111289c47355f58f) | Final rehearsal on a third wallet (delegate → sweep → `withdrawETH`) |
+| 10-29 02:28:59 | [0](https://etherscan.io/tx/0x6b76e8748ba1c6bc81e674c830a0b3603db6bde04ec4bd4a2d3126c1a12706d8) | Test contract v1 deployed |
+| 13:51:35 | [1](https://etherscan.io/tx/0x16b5acc35a82d194aadb21a4a56d666310fe83982c387c974f4796275f499dca) | Delegation on test wallet A |
+| 13:51:59 | [2](https://etherscan.io/tx/0xec5af21dc34fc8a3ac131f694aa0df5b27c0525ea3a71d97daa7e597abcb21d9) | Delegation on test wallet B |
+| 14:19:59 | [3](https://etherscan.io/tx/0xa2e0cd4123cf4463cf43685232142d680e9994f5bd29f0540bf977a158216c4c) | Sweep test on wallet A |
+| 14:24:11 | [4](https://etherscan.io/tx/0x6aaae5bcb5e0bafd1e79e70670864f8f726624d50d99d16152c5e684f571ddf4) | Sweep test on wallet B |
+| 15:59:11 | [5](https://etherscan.io/tx/0x97408e7562eb2b28efcd24ba01609607b5749bc89448d007fa8b50ecf290329c) | Final [sweeper](https://etherscan.io/address/0x63e842B054Bd624a465454D533C33F573e9c6fAe) deployed |
+| 16:20:47 | [6](https://etherscan.io/tx/0xb2148eb825cac75efe0ae7fb5c319e6b66df62631738ba252185960e50dc5782) | Delegation on test wallet C |
+| 16:25:59 | [7](https://etherscan.io/tx/0x7c5206cb7aa77ce5b54f030e94ad127af0184e856689526602ffcd21a238e95d) | Delegation on wallet C again |
+| 16:30:11 | [8](https://etherscan.io/tx/0x9c2dbed15322072e35e767c0c9b4cd962abf58fe51937e62a7020c742b834f2f) | Sweep rehearsal on wallet C |
+| 16:47:23 | [9](https://etherscan.io/tx/0x2b8eb62a32408e96bd7cb6740ede11a054549581534de5d5111289c47355f58f) | `withdrawETH` test on wallet C |
 | 20:20:59 | [10](https://etherscan.io/tx/0xad99264d5532ae0dd04b2004eebda05f25657e70dacb764f7ac8d4ccd051298b) | **Binance 14 delegation** |
 | 20:24~23:56 | 11~22 | Twelve sweeps and withdrawals (§5.3) |
 
@@ -127,7 +133,7 @@ So when were these authorizations signed? Binance 14's nonce passed 18914775 at 
 | [21:04:23](https://etherscan.io/tx/0x31c4c9fe287d54fb9d3b79980477a8c793a11f774b98d0a9a92de1dad888a91d) | `sweep` | 1,700 ETH + 23 tokens |
 | [21:44:11](https://etherscan.io/tx/0x55ba4dabc41b468e580751373ad31acdee6f5ba398682df2c93e5a8340870556) | `sweep` | 370 ETH + 14 tokens |
 | [22:39:35](https://etherscan.io/tx/0x4a4aed833556814c16fe176fc8abc70ce124eadc73da3bcdf42a67ef44f9ad6b) | `sweep` | 128 ETH + 122 tokens |
-| • [23:36:47](https://etherscan.io/tx/0x5059928573a6e4ed48dda491648cf619c2368e81fc6cce3f9e97a779ad521f1f)<br />• [23:37:23](https://etherscan.io/tx/0xe016ae73ea9226464435b2b6203bbbb8e10d3c2d68f4facee2d708a47606af23)<br />• [23:37:47](https://etherscan.io/tx/0x833202076503f1c27852294262343011815038c07708d362f5bb0d8104bc7bda)<br />• [23:38:23](https://etherscan.io/tx/0x698dac6c9133842177ceba0e8ba7faa6b39bc99cbc12910d33e690aae1f139f3)<br />• [23:54:59](https://etherscan.io/tx/0xac08e5693512be1090898f1c42e86fc9f32c6f3a326c8ade5b93af26b831da19) | `sweep` ×5 | Balance below 1 ETH, nothing moved (automated polling) |
+| [23:36:47](https://etherscan.io/tx/0x5059928573a6e4ed48dda491648cf619c2368e81fc6cce3f9e97a779ad521f1f), [23:37:23](https://etherscan.io/tx/0xe016ae73ea9226464435b2b6203bbbb8e10d3c2d68f4facee2d708a47606af23), [23:37:47](https://etherscan.io/tx/0x833202076503f1c27852294262343011815038c07708d362f5bb0d8104bc7bda), [23:38:23](https://etherscan.io/tx/0x698dac6c9133842177ceba0e8ba7faa6b39bc99cbc12910d33e690aae1f139f3), [23:54:59](https://etherscan.io/tx/0xac08e5693512be1090898f1c42e86fc9f32c6f3a326c8ade5b93af26b831da19) | `sweep` ×5 | Balance below 1 ETH, nothing moved (automated polling) |
 | [23:56:47](https://etherscan.io/tx/0x4395d51dc3f3c51230329efc3548f74edbced353ff3f795c517cc57fa650f89b) | `sweep` | 2,962 ETH |
 
 - Sweeps moved about **172,624 ETH** in total. Each one left exactly 1 ETH behind.
@@ -156,10 +162,10 @@ A large exchange's hot wallet is usually split into these layers.
 | Layer | Role | If the attacker controls it |
 | --- | --- | --- |
 | Withdrawal service | Creates user-withdrawal and internal-transfer requests | Can create requests. They still have to pass the policy engine |
-| Policy engine | • Address whitelists<br />• Amount limits<br />• Velocity limits<br />• Anomaly detection | Effectively decides what gets signed |
+| Policy engine | Checks address whitelists, amount limits, velocity limits, and anomalies | Effectively decides what gets signed |
 | Signing orchestrator | Converts requests into chain-specific formats and hands them to signers | Reaches every chain at once |
 | Per-chain signers | HSM or MPC nodes sign with the real keys | Protects the key. But signs whatever request arrives |
-| Ops path | • Deployment via CI/CD<br />• Cluster operations | Can change code or config in any layer above |
+| Ops path | Deploys services via CI/CD and runs the clusters | Can change code or config in any layer above |
 
 [Just like the Secure Enclave](/en/posts/mobile-wallet-key-security) in a phone wallet, a signer never exports its key. Instead, it *signs the requests it receives*. So the attacker's target is not the key. It is **some layer in front of the signer**.
 
@@ -167,10 +173,10 @@ A large exchange's hot wallet is usually split into these layers.
 
 | Observed fact | Basis | Constraint on the mechanism |
 | --- | --- | --- |
-| • No evidence of key leakage<br />• Binance signed 93 transactions during the delegation<br />• Binance revoked it itself | • Binance<br />• On-chain | The attacker gained **the right to request signatures**, not the keys |
-| Wallets on 11 chains with different curves (secp256k1, ed25519) all drained within ~30 minutes | • TRM<br />• Elliptic | Not per-chain signers breached one by one. The attacker reached **a chain-agnostic upper layer** |
-| Other chains drained via *validly signed ordinary withdrawals* | • TRM<br />• Elliptic | The attacker used **request formats the signing system normally accepts** |
-| The EIP-7702 delegation "did not pass through normal approval controls" | Richard Teng | The policy engine was **bypassed**. Or the request was **in a format it couldn't interpret** |
+| • No evidence of key leakage<br />• Binance signed 93 transactions during the delegation<br />• Binance revoked it itself | Binance, on-chain | The attacker gained **the right to request signatures**, not the keys |
+| • Wallets on 11 chains with different curves (secp256k1, ed25519) all drained within ~30 minutes | TRM, Elliptic | Not per-chain signers breached one by one. The attacker reached **a chain-agnostic upper layer** |
+| • Other chains drained via *validly signed ordinary withdrawals* | TRM, Elliptic | The attacker used **request formats the signing system normally accepts** |
+| • The EIP-7702 delegation "did not pass through normal approval controls" | Richard Teng | The policy engine was **bypassed**. Or the request was **in a format it couldn't interpret** |
 | • 50 authorizations obtained ~3 minutes before submission<br />• chainId 1 (mainnet only) | On-chain | Not signatures stolen in advance. **Live signing-API access**. Access may have been time-limited |
 | • 36 hours of testing and rehearsal<br />• Exact authorization format used | On-chain | The attacker **knew the internal signing API's spec beforehand**. There was a reconnaissance period |
 | • "Additional breach points"<br />• Attacker tooling with a "self-destruct mechanism" | Binance | A **multi-stage intrusion**, not a single click. Trace removal slows forensics |
@@ -179,9 +185,9 @@ A large exchange's hot wallet is usually split into these layers.
 
 | Hypothesis | Description | Supporting evidence | Inconsistent or uncertain |
 | --- | --- | --- | --- |
-| **H1. Direct signing-API calls with service credentials** | The compromised container's service-account token or mTLS certificate is used to call the signing orchestrator directly. Possible if the policy engine sits *beside* the signing path, not *in front of* it | • Simultaneous drain on 11 chains<br />• The official account ("withdrawals submitted from a container")<br />• Live access | Should have been blocked if the signer re-checked policy |
-| **H2. Abuse of a raw-digest signing path** | The signing API had a path that signs a raw 32-byte hash. A 7702 authorization digest was fed into it (§6.5) | • "7702 didn't pass approval controls"<br />• Other chains used ordinary-withdrawal formats | Whether such an API existed is undisclosed |
-| **H3. Tampering with policy-engine settings** | Whitelists and limits changed so withdrawals to attacker addresses pass | Ordinary withdrawals were "validly signed" | • The official wording is *bypassed*, not *passed*<br />• No mention of config changes |
+| **H1. Direct signing-API calls with service credentials** | The compromised container's service-account token or mTLS certificate is used to call the signing orchestrator directly. Possible if the policy engine sits *beside* the signing path, not *in front of* it | • Simultaneous drain on 11 chains<br />• The official account ("withdrawals submitted from a container")<br />• Live access | • Should have been blocked if the signer re-checked policy |
+| **H2. Abuse of a raw-digest signing path** | The signing API had a path that signs a raw 32-byte hash. A 7702 authorization digest was fed into it (§6.5) | • "7702 didn't pass approval controls"<br />• Other chains used ordinary-withdrawal formats | • Whether such an API existed is undisclosed |
+| **H3. Tampering with policy-engine settings** | Whitelists and limits changed so withdrawals to attacker addresses pass | • Ordinary withdrawals were "validly signed" | • The official wording is *bypassed*, not *passed*<br />• No mention of config changes |
 | **H4. Poisoned deployment path (CI/CD)** | Malicious code planted in a signing-related service image or config via DevOps privileges. Same family as the Safe front-end tampering in the Bybit hack | • Entry point was a "DevOps" endpoint<br />• Self-destruct mechanism<br />• Additional breach points | • An image change would show up in deployment records<br />• No mention of one |
 
 The simplest picture that satisfies all these constraints is **H1 + H2**. It goes like this.
@@ -201,8 +207,8 @@ How the laptop was infected has not been disclosed. But the playbook of TraderTr
 | Incident | Initial access | Lateral movement |
 | --- | --- | --- |
 | CISA advisory (2022) | • Recruitment-themed spear-phishing aimed at sysadmin and **DevOps** staff<br />• Trojanized crypto apps | — |
-| DMM Bitcoin (2024) | Posed as a LinkedIn recruiter. Lured a Ginco employee into running a malicious Python script as a GitHub "pre-employment test" | • Impersonated the employee with stolen **session cookies**<br />• Reached internal systems<br />• Manipulated a transaction |
-| Bybit (2025) | A Safe developer's macOS machine infected via a Docker project (social engineering suspected) | • Hijacked active **AWS session tokens** to bypass MFA<br />• Altered Safe's front-end code<br />• Cleared Bash history<br />• Removed the malware |
+| DMM Bitcoin (2024) | • Posed as a LinkedIn recruiter<br />• Lured a Ginco employee into running a malicious Python script as a GitHub "pre-employment test" | • Impersonated the employee with stolen **session cookies**<br />• Reached internal systems<br />• Manipulated a transaction |
+| Bybit (2025) | • A Safe developer's macOS machine infected via a Docker project (social engineering suspected) | • Hijacked active **AWS session tokens** to bypass MFA<br />• Altered Safe's front-end code<br />• Cleared Bash history<br />• Removed the malware |
 
 All three follow the same arc: **developer or ops endpoint → stolen session credentials → lateral movement disguised as a legitimate user**. A session token has already passed MFA. So stealing one neutralizes MFA. The way the Bybit attackers wiped their traces also resembles the "self-destruct mechanism" Binance mentioned. Did Binance's laptop go down the same road? That is a question for the post-mortem.
 
@@ -221,7 +227,7 @@ And the authority each signature hands over is in a different league.
 
 | | Withdrawal signature | EIP-7702 authorization signature |
 | --- | --- | --- |
-| Scope | • One asset<br />• One amount<br />• Once | • **Every asset** in the wallet<br />• **All future deposits** too |
+| Scope | One asset, one amount, once | **Every asset** in the wallet and **all future deposits** |
 | Duration | Done once executed | Persists **until revoked** |
 | Side privileges | None | Every other contract role the wallet holds (§5.3 `callExecute`) |
 | Visibility to the policy engine | Recipient and amount can be checked | No recipient or amount to check |
@@ -232,7 +238,7 @@ And the authority each signature hands over is in a different league.
 
 | Receiving address | USDT blacklist | USDC blacklist | Current balance (frozen) |
 | --- | --- | --- | --- |
-| `0x5227…2f8c` | 21:01:35 | 21:04:59 | • 1,175.46 million USDT<br />• 823 million USDC |
+| `0x5227…2f8c` | 21:01:35 | 21:04:59 | 1,175.46 million USDT, 823 million USDC |
 | `0xa97b…8d10` | — | 10-30 04:11:35 | ~120,000 USDC |
 
 - From the first sweep (20:24) to Tether's freeze (21:01) took **37 minutes**. About 644 million USDT got out in that window.
@@ -280,14 +286,14 @@ In both cases, "who signs" was not the problem. What broke was **"who decides wh
 
 | Mitigation | Stage it would have stopped here | Trade-off |
 | --- | --- | --- |
-| Signers refuse raw hashes and **decode structured requests themselves** before signing | §6.5 authorization-digest bypass (H2) | A parser per chain and message format |
-| Policy checked **again** at the signer (policy engine placed in series, in front of the signing path) | §6.3 direct calls with service credentials (H1) | • Latency<br />• Policy maintained twice |
-| Signing-request rights split per service and per chain, with short-lived credentials | §6.3 one container reaching 11 chains | Credential-issuance infrastructure |
-| Default-deny EIP-7702 authorizations in signing policy | §5.2 the delegation itself | Legitimate delegations (e.g., AA migration) need a separate approval flow |
-| Treat a batch request for authorizations across many nonces as an indicator of compromise | §5.2 the 50-authorization batch | Almost never seen in normal ops, so cheap |
+| • Signers refuse raw hashes and **decode structured requests themselves** before signing | §6.5 authorization-digest bypass (H2) | A parser per chain and message format |
+| • Policy checked **again** at the signer (policy engine placed in series, in front of the signing path) | §6.3 direct calls with service credentials (H1) | Latency, policy maintained twice |
+| • Signing-request rights split per service and per chain, with short-lived credentials | §6.3 one container reaching 11 chains | Credential-issuance infrastructure |
+| • Default-deny EIP-7702 authorizations in signing policy | §5.2 the delegation itself | Legitimate delegations (e.g., AA migration) need a separate approval flow |
+| • Treat a batch request for authorizations across many nonces as an indicator of compromise | §5.2 the 50-authorization batch | Almost never seen in normal ops, so cheap |
 | • Real-time monitoring of treasury delegation state<br />• A pre-tested revocation runbook | §5.3 delegation lasting 3h49m → minutes | Monitoring infrastructure |
-| Automatically halt deposit consolidation when a delegation is detected | §5.3 the 23:56 sweep | Deposit delays on false positives |
-| Separate signing infrastructure by chain and wallet tier | §3 simultaneous drain on 11 chains | Operational complexity |
+| • Automatically halt deposit consolidation when a delegation is detected | §5.3 the 23:56 sweep | Deposit delays on false positives |
+| • Separate signing infrastructure by chain and wallet tier | §3 simultaneous drain on 11 chains | Operational complexity |
 | • Separate operator endpoints from everyday work<br />• Separate approval for privilege escalation | §1 initial access | Developer productivity |
 
 Monitoring for delegation is simpler than it sounds. Just watch for an EOA that should have no code suddenly carrying a delegation designator.
