@@ -11,6 +11,8 @@ export type PostMeta = {
   description: string;
   date: string;
   dateDisplay: string;
+  /** ISO date of the last substantive revision; equals `date` when the post was never updated. */
+  updated: string;
   tags: string[];
   draft: boolean;
   readingMinutes: number;
@@ -61,10 +63,16 @@ export function getPostMeta(locale: Locale, slug: string): PostMeta {
     description: String(data.description ?? ""),
     date: d.iso,
     dateDisplay: d.display,
+    updated: data.updated ? formatDate(data.updated, locale).iso : d.iso,
     tags: Array.isArray(data.tags) ? data.tags.map(String) : [],
     draft: Boolean(data.draft ?? false),
     readingMinutes: Math.max(1, Math.round(stats.minutes)),
   };
+}
+
+/** Raw MDX body (frontmatter stripped), for plain-text exports such as llms.txt. */
+export function getPostBody(locale: Locale, slug: string): string {
+  return readPostFile(locale, slug).content;
 }
 
 export function getAllPosts(locale: Locale, includeDrafts = false): PostMeta[] {

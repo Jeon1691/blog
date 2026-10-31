@@ -70,6 +70,23 @@ jobs:
             --exclude "pagefind/*" \
             --cache-control "public, max-age=0, must-revalidate"
 
+      - name: Fix content-type for LLM text exports (Markdown and llms.txt)
+        run: |
+          # s3 sync guesses types from extensions; .md can land as binary/octet-stream and
+          # text/plain without a charset garbles Korean, so set both explicitly.
+          find out -type f -name '*.md' | while read -r f; do
+            aws s3 cp "$f" "s3://${{ secrets.AWS_S3_BUCKET }}/${f#out/}" \
+              --content-type "text/markdown; charset=utf-8" \
+              --cache-control "public, max-age=0, must-revalidate" \
+              --metadata-directive REPLACE
+          done
+          for f in out/llms.txt out/llms-full.txt; do
+            aws s3 cp "$f" "s3://${{ secrets.AWS_S3_BUCKET }}/${f#out/}" \
+              --content-type "text/plain; charset=utf-8" \
+              --cache-control "public, max-age=0, must-revalidate" \
+              --metadata-directive REPLACE
+          done
+
       - name: Fix content-type for extensionless image responses
         run: |
           find out -type f \( -name 'opengraph-image' -o -name 'apple-icon' -o -name 'icon' \) | while read -r f; do

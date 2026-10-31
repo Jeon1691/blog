@@ -57,7 +57,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     for (const slug of getAllSlugs(lang)) {
       const meta = getPostMeta(lang, slug);
       const isoDate = (() => {
-        const d = new Date(meta.date);
+        const d = new Date(meta.updated);
         return Number.isNaN(d.getTime()) ? now : d.toISOString();
       })();
       entries.push({

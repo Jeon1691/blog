@@ -42,13 +42,19 @@ export async function generateMetadata({
     description: meta.description,
     keywords: meta.tags,
     authors: [{ name: site.author, url: site.authorUrl }],
-    alternates: { canonical: `/${lang}/posts/${slug}/`, languages },
+    alternates: {
+      canonical: `/${lang}/posts/${slug}/`,
+      languages,
+      // Clean Markdown copy for LLM crawlers and retrieval tools.
+      types: { "text/markdown": `/${lang}/posts/${slug}/index.md` },
+    },
     openGraph: {
       type: "article",
       title: meta.title,
       description: meta.description,
       url: `${site.url}/${lang}/posts/${slug}/`,
       publishedTime: meta.date,
+      modifiedTime: meta.updated,
       tags: meta.tags,
       authors: [site.author],
       locale: lang === "ko" ? "ko_KR" : "en_US",
@@ -70,6 +76,9 @@ export default async function PostPage({
   if (!isLocale(lang)) notFound();
   const dict = getDictionary(lang);
   const meta = getPostMeta(lang, slug);
+  const langsWithPost = locales.filter((l) => getAllSlugs(l).includes(slug));
+  const originalLang = langsWithPost.includes("ko") ? "ko" : langsWithPost[0];
+  const translations = langsWithPost.filter((l) => l !== lang);
   const { default: Post } = await import(`@/../content/${lang}/posts/${slug}.mdx`);
 
   const crumb = breadcrumbSchema(lang, [
@@ -86,7 +95,7 @@ export default async function PostPage({
 
   return (
     <article className="mx-auto max-w-3xl px-6 py-16" data-pagefind-body>
-      <JsonLd data={[articleSchema(meta), crumb]} />
+      <JsonLd data={[articleSchema(meta, translations, originalLang), crumb]} />
       <div className="mb-10">
         <Link
           href={`/${lang}/posts/`}

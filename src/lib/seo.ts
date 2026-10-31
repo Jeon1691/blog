@@ -45,22 +45,41 @@ export function websiteSchema(locale: Locale) {
   };
 }
 
-export function articleSchema(post: PostMeta) {
-  const url = `${site.url}/${post.locale}/posts/${post.slug}/`;
+/**
+ * `translations` lists the same post in other locales. The post in `originalLocale`
+ * is marked as the source work; the others point back to it as translations.
+ */
+export function articleSchema(
+  post: PostMeta,
+  translations: Locale[] = [],
+  originalLocale: Locale = post.locale,
+) {
+  const urlFor = (l: Locale) => `${site.url}/${l}/posts/${post.slug}/`;
+  const url = urlFor(post.locale);
+  const ref = (l: Locale) => ({ "@type": "BlogPosting", "@id": urlFor(l), inLanguage: langTag(l) });
+  const translationLinks =
+    translations.length === 0
+      ? {}
+      : post.locale === originalLocale
+        ? { workTranslation: translations.map(ref) }
+        : { translationOfWork: ref(originalLocale) };
   return {
     "@context": "https://schema.org",
     "@type": "BlogPosting",
+    "@id": url,
     mainEntityOfPage: { "@type": "WebPage", "@id": url },
+    isPartOf: { "@type": "WebSite", name: site.name, url: site.url },
     headline: post.title,
     description: post.description,
     inLanguage: langTag(post.locale),
     datePublished: new Date(post.date).toISOString(),
-    dateModified: new Date(post.date).toISOString(),
+    dateModified: new Date(post.updated).toISOString(),
     author: personSchema(),
     publisher: personSchema(),
     keywords: post.tags.join(", "),
     image: [`${url}opengraph-image`],
     url,
+    ...translationLinks,
   };
 }
 
