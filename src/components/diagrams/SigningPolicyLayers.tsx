@@ -57,20 +57,25 @@ export function SigningPolicyLayers({ locale = "ko" }: { locale?: Locale }) {
     return (
       <div
         key={layer.n}
-        className={`rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-100/60 dark:bg-zinc-900/50 pt-8 px-3 pb-3 relative transition-all duration-500 ${
+        className={`rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-100/60 dark:bg-zinc-900/50 pt-2 px-1.5 pb-1.5 sm:pt-8 sm:px-3 sm:pb-3 relative transition-all duration-500 ${
           a.current(idx) ? "ring-2 ring-amber-400/80 dark:ring-amber-500/70" : ""
         }`}
         style={{ opacity: a.shown(idx) ? 1 : 0 }}
       >
-        <div className="absolute top-0 left-3 -translate-y-1/2 flex items-center gap-1.5 rounded-full border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-2.5 py-0.5">
-          <span className="font-mono text-[10px] font-bold w-4 h-4 rounded-full bg-zinc-800 dark:bg-zinc-200 text-white dark:text-zinc-900 flex items-center justify-center">
-            {layer.n}
-          </span>
-          <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">{layer.label}</span>
-          <span className="text-[10px] text-zinc-500 dark:text-zinc-400 hidden md:inline">· {layer.sub}</span>
-        </div>
-        <div className="absolute top-0 right-3 -translate-y-1/2 rounded-full bg-rose-600 dark:bg-rose-500 text-white text-[10px] font-semibold px-2 py-0.5">
-          {layer.stops}
+        {/* Phones: label and badge sit in a wrapping row inside the layer, since six nested
+            layers leave too little width for both on the border. sm+: the row dissolves
+            (contents) and both chips straddle the border as before. */}
+        <div className="flex flex-wrap items-center justify-between gap-1 mb-2 sm:mb-0 sm:contents">
+          <div className="flex items-center gap-1.5 rounded-full border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-2.5 py-0.5 sm:absolute sm:top-0 sm:left-3 sm:-translate-y-1/2">
+            <span className="font-mono text-[10px] font-bold w-4 h-4 rounded-full bg-zinc-800 dark:bg-zinc-200 text-white dark:text-zinc-900 flex items-center justify-center">
+              {layer.n}
+            </span>
+            <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">{layer.label}</span>
+            <span className="text-[10px] text-zinc-500 dark:text-zinc-400 hidden md:inline">· {layer.sub}</span>
+          </div>
+          <div className="rounded-full bg-rose-600 dark:bg-rose-500 text-white text-[10px] font-semibold px-2 py-0.5 sm:absolute sm:top-0 sm:right-3 sm:-translate-y-1/2">
+            {layer.stops}
+          </div>
         </div>
         {inner}
       </div>

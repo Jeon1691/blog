@@ -50,6 +50,49 @@ body {
   content: none;
 }
 
+/* Tables: scroll sideways instead of squeezing columns to a few characters on phones.
+   The two "local" gradients cover the edge shadows while the content sits at that edge,
+   so a shadow only shows on the side that still has more table to scroll to. */
+.prose .table-scroll {
+  overflow-x: auto;
+  margin: 1.5em 0;
+  background:
+    linear-gradient(to right, var(--background) 30%, transparent) left / 2rem 100% no-repeat local,
+    linear-gradient(to left, var(--background) 30%, transparent) right / 2rem 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, rgb(0 0 0 / 0.18), transparent) left / 0.75rem 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, rgb(0 0 0 / 0.18), transparent) right / 0.75rem 100% no-repeat scroll;
+}
+[data-theme="dark"] .prose .table-scroll {
+  background:
+    linear-gradient(to right, var(--background) 30%, transparent) left / 2rem 100% no-repeat local,
+    linear-gradient(to left, var(--background) 30%, transparent) right / 2rem 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, rgb(255 255 255 / 0.14), transparent) left / 0.75rem 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, rgb(255 255 255 / 0.14), transparent) right / 0.75rem 100% no-repeat scroll;
+}
+.prose .table-scroll:focus-visible {
+  outline: 2px solid var(--muted);
+  outline-offset: 2px;
+}
+.prose .table-scroll > table {
+  margin: 0;
+}
+/* Minimum widths by column count keep 3- and 4-column tables readable; 2-column tables still fit. */
+.prose .table-scroll > table:has(th:nth-child(3)) {
+  min-width: 34rem;
+}
+.prose .table-scroll > table:has(th:nth-child(4)) {
+  min-width: 44rem;
+}
+@media (max-width: 640px) {
+  .prose .table-scroll > table {
+    font-size: 0.8125rem;
+    line-height: 1.5;
+  }
+  .prose .table-scroll :is(th, td) {
+    padding: 0.5rem 0.625rem;
+  }
+}
+
 [data-rehype-pretty-code-figure] pre {
   padding: 1rem;
   overflow-x: auto;
