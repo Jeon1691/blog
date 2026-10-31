@@ -83,7 +83,7 @@ export function SigningInfraBoundary({ locale = "ko" }: { locale?: Locale }) {
         <div className="relative flex items-center justify-center my-2">
           <div className="absolute inset-x-0 border-t border-dashed border-rose-400 dark:border-rose-700" />
           <span className="relative bg-zinc-50 dark:bg-zinc-900 px-3 text-xs font-semibold text-rose-700 dark:text-rose-300">
-            🔒 {s.boundary}
+            {s.boundary}
           </span>
         </div>
 

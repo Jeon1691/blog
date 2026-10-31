@@ -14,7 +14,7 @@ const STRINGS = {
   ko: {
     caption:
       "Fig 1. 사건 전체 타임라인(UTC) — 36시간의 준비, 20분의 유출, 37분 뒤의 동결, 그리고 위임이 풀리기까지 3시간 49분.",
-    note: "왼쪽 띠 색이 국면을 구분한다 — 준비(amber) → 유출(rose) → 동결(sky) → 출금 중단(zinc) → 위임 해제(emerald).",
+    legend: { prep: "준비", drain: "유출", freeze: "동결", halt: "출금 중단", revoke: "위임 해제" } as Record<Phase, string>,
     events: [
       { time: "10-28 07:39", title: "Tornado Cash로 공격 지갑 충전", body: "0.1 ETH 풀에서 세 차례 출금(마지막은 10-29 08:23).", phase: "prep" },
       { time: "10-29 02:28", title: "시험·리허설", body: "시험 컨트랙트 배포 → 시험 지갑 3개에 위임 리허설 → 15:59 최종 스위퍼 배포.", phase: "prep" },
@@ -30,7 +30,7 @@ const STRINGS = {
   en: {
     caption:
       "Fig 1. Full incident timeline (UTC) — 36 hours of preparation, a 20-minute drain, freezes 37 minutes later, and 3 hours 49 minutes until the delegation was lifted.",
-    note: "Left stripe color marks the phase — preparation (amber) → drain (rose) → freeze (sky) → withdrawal halt (zinc) → delegation revoked (emerald).",
+    legend: { prep: "Preparation", drain: "Drain", freeze: "Freeze", halt: "Withdrawal halt", revoke: "Delegation revoked" } as Record<Phase, string>,
     events: [
       { time: "10-28 07:39", title: "Attacker wallet funded via Tornado Cash", body: "Three withdrawals from the 0.1 ETH pool (the last at 10-29 08:23).", phase: "prep" },
       { time: "10-29 02:28", title: "Testing and rehearsal", body: "Test contract deployed → delegation rehearsed on three test wallets → final sweeper deployed at 15:59.", phase: "prep" },
@@ -52,6 +52,8 @@ const phaseStripe: Record<Phase, string> = {
   halt: "bg-zinc-500 dark:bg-zinc-400",
   revoke: "bg-emerald-500 dark:bg-emerald-600",
 };
+
+const PHASE_ORDER: Phase[] = ["prep", "drain", "freeze", "halt", "revoke"];
 
 export function BinanceHackTimeline({ locale = "ko" }: { locale?: Locale }) {
   const s = STRINGS[locale];
@@ -80,9 +82,14 @@ export function BinanceHackTimeline({ locale = "ko" }: { locale?: Locale }) {
           </li>
         ))}
       </ol>
-      <p className="mt-5 text-xs text-zinc-500 dark:text-zinc-400 text-center">
-        {s.note}
-      </p>
+      <ul className="mt-5 flex flex-wrap justify-center gap-x-5 gap-y-2 text-xs text-zinc-600 dark:text-zinc-400">
+        {PHASE_ORDER.map((p) => (
+          <li key={p} className="flex items-center gap-1.5">
+            <span className={`inline-block w-1 h-3.5 rounded-full ${phaseStripe[p]}`} />
+            <span>{s.legend[p]}</span>
+          </li>
+        ))}
+      </ul>
     </Figure>
   );
 }

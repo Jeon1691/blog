@@ -46,7 +46,7 @@ export function SigningPolicyLayers({ locale = "ko" }: { locale?: Locale }) {
   const asset = (
     <Reveal shown={a.shown(assetIdx)} current={a.current(assetIdx)}>
       <div className="rounded-md border border-emerald-400 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 px-4 py-4 text-center">
-        <div className="text-sm font-bold text-emerald-800 dark:text-emerald-200">🔑 {s.asset}</div>
+        <div className="text-sm font-bold text-emerald-800 dark:text-emerald-200">{s.asset}</div>
       </div>
     </Reveal>
   );

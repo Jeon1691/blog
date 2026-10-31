@@ -127,7 +127,7 @@ function Column({
           >
             <span className="font-mono tabular-nums">{r.label}</span>
             <span>
-              {r.kind === "apply" ? `✓ ${s.apply}` : s.skip} · {r.count}
+              {r.kind === "apply" ? s.apply : s.skip} · {r.count}
               {s.unit}
             </span>
           </li>

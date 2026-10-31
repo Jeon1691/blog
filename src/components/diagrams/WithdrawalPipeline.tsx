@@ -30,7 +30,7 @@ const STRINGS = {
       H3: "정책 엔진 설정 조작",
       H4: "배포 경로(CI/CD) 오염",
     } as Record<Hypothesis, string>,
-    keyTag: "🔑 키",
+    keyTag: "키 보관",
   },
   en: {
     caption:
@@ -50,7 +50,7 @@ const STRINGS = {
       H3: "tampering with policy-engine settings",
       H4: "poisoned deployment path (CI/CD)",
     } as Record<Hypothesis, string>,
-    keyTag: "🔑 key",
+    keyTag: "holds keys",
   },
 } as const;
 
