@@ -102,3 +102,62 @@ jobs:
           aws cloudfront create-invalidation \
             --distribution-id ${{ secrets.AWS_CLOUDFRONT_DISTRIBUTION_ID }} \
             --paths "/*"
+
+  views-worker:
+    # The view counter only counts slugs in its build-time allowlist, so a new post needs a
+    # Worker deploy too. Runs after the site deploy, only when posts or the Worker changed.
+    needs: build-and-deploy
+    runs-on: ubuntu-latest
+    env:
+      CF_CONFIGURED: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Detect post or Worker changes
+        id: changes
+        run: |
+          before="${{ github.event.before }}"
+          # Manual runs, first pushes, and force-pushes lack a usable base: deploy to be safe.
+          if [ "${{ github.event_name }}" != "push" ] || [ -z "$before" ] || ! git cat-file -e "$before^{commit}" 2>/dev/null; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          elif git diff --name-only "$before" "${{ github.sha }}" | grep -qE '^(content/|views-worker/|src/lib/supported-locales\.json$)'; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Warn when Cloudflare credentials are missing
+        if: steps.changes.outputs.changed == 'true' && env.CF_CONFIGURED != 'true'
+        run: echo "::warning::CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID secrets are not set; skipping the views Worker deploy. New posts will not show view counts until the Worker is deployed."
+
+      - uses: pnpm/action-setup@v6
+        if: steps.changes.outputs.changed == 'true' && env.CF_CONFIGURED == 'true'
+        with:
+          version: 9.15.4
+
+      - uses: actions/setup-node@v5
+        if: steps.changes.outputs.changed == 'true' && env.CF_CONFIGURED == 'true'
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            views-worker/pnpm-lock.yaml
+
+      # The allowlist generator reads post frontmatter with the root's gray-matter.
+      - name: Install dependencies
+        if: steps.changes.outputs.changed == 'true' && env.CF_CONFIGURED == 'true'
+        run: |
+          pnpm install --frozen-lockfile --ignore-scripts
+          pnpm --dir views-worker install --frozen-lockfile --ignore-scripts
+
+      - name: Deploy views Worker
+        if: steps.changes.outputs.changed == 'true' && env.CF_CONFIGURED == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          pnpm --dir views-worker allowlist:check
+          pnpm --dir views-worker exec wrangler deploy
