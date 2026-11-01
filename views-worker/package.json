@@ -11,5 +11,10 @@
   },
   "devDependencies": {
     "wrangler": "^4.151.3"
+  },
+  "pnpm": {
+    "overrides": {
+      "miniflare@5.20261019.1-beta>undici": "7.30.1"
+    }
   }
 }
